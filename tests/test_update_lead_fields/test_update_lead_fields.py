@@ -34,7 +34,7 @@ def test_update_all_lead_fields() -> None:
 
     client = AmoCRMClient()
     
-    test_lead_id = 39409997
+    test_lead_id = 39418945
  
     logger.info(f"\nИспользуем существующую сделку: ID={test_lead_id}")
     
