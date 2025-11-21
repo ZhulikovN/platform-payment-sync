@@ -82,7 +82,6 @@ class AmoCRMClient:
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
 
-            # Обработка rate limits
             if response.status_code == 429:
                 logger.warning("AmoCRM rate limit exceeded, retrying...")
                 response.raise_for_status()
@@ -99,31 +98,36 @@ class AmoCRMClient:
                 logger.error(f"Response text: {e.response.text}")
             raise
 
-    def find_contact_by_custom_field(self, field_id: int, value: str) -> dict[str, Any] | None:
+    def find_contact_by_custom_field(self,value: str) -> dict[str, Any] | None:
         """
-        Найти контакт по кастомному полю.
+        Найти контакт по кастомному полю через filter[query].
 
         Args:
-            field_id: ID кастомного поля
+            field_id: ID кастомного поля (используется для логирования)
             value: Значение для поиска
 
         Returns:
             Данные контакта или None если не найден
         """
-        logger.info(f"Searching contact by custom field {field_id}={value}")
+        logger.info(f"Searching contact by custom value {value} using filter[query]")
 
         try:
             response = self._make_request(
                 "GET",
                 "/api/v4/contacts",
-                data={"filter": {f"custom_fields_values[{field_id}]": value}},
+                data={
+                    "query": value,
+                    "limit": 50,
+                },
             )
 
             contacts = response.get("_embedded", {}).get("contacts", [])
 
             if not contacts:
-                logger.info("Contact not found")
+                logger.info(f"Contact not found by value: {value}")
                 return None
+
+            logger.info(f"Found {len(contacts)} contacts by query={value}")
 
             if len(contacts) > 1:
                 logger.warning(f"Found {len(contacts)} contacts, taking the first one")
@@ -243,52 +247,117 @@ class AmoCRMClient:
         logger.info("Contact not found by any criteria")
         return None
 
-    def find_active_lead(self, contact_id: int) -> dict[str, Any] | None:
+    def find_active_lead(
+        self,
+        contact_id: int,
+        phone: str | None = None,
+        email: str | None = None,
+    ) -> dict[str, Any] | None:
         """
-        Найти активную сделку для контакта (во ВСЕХ воронках).
+        Найти активную сделку для контакта.
+
+        Сначала пытается найти через filter[query] по телефону или email,
+        затем фильтрует по contact_id для проверки совпадения.
 
         Args:
             contact_id: ID контакта
+            phone: Телефон для поиска
+            email: Email для поиска
 
         Returns:
             Данные сделки или None если не найдена
         """
-        logger.info(f"Searching active lead for contact {contact_id}")
+        logger.info(
+            f"Searching active lead for contact {contact_id}, phone={phone}, email={email}"
+        )
 
         try:
-            response = self._make_request(
-                "GET",
-                "/api/v4/leads",
-                data={"filter[contacts][]": contact_id},
-            )
+            leads = []
 
-            leads = response.get("_embedded", {}).get("leads", [])
+            if phone:
+                logger.info(f"Searching leads by phone: {phone}")
+                try:
+                    response = self._make_request(
+                        "GET",
+                        "/api/v4/leads",
+                        data={
+                            "filter[query]": phone,
+                            "limit": 50,
+                        },
+                    )
+                    phone_leads = response.get("_embedded", {}).get("leads", [])
+                    logger.info(f"Found {len(phone_leads)} leads by phone")
+                    leads.extend(phone_leads)
+                except Exception as e:
+                    logger.warning(f"Error searching leads by phone: {e}")
+
+            if email:
+                logger.info(f"Searching leads by email: {email}")
+                try:
+                    response = self._make_request(
+                        "GET",
+                        "/api/v4/leads",
+                        data={
+                            "filter[query]": email,
+                            "limit": 50,
+                        },
+                    )
+                    email_leads = response.get("_embedded", {}).get("leads", [])
+                    logger.info(f"Found {len(email_leads)} leads by email")
+                    leads.extend(email_leads)
+                except Exception as e:
+                    logger.warning(f"Error searching leads by email: {e}")
 
             if not leads:
-                logger.info("No leads found for contact")
+                logger.info("No leads found by phone or email")
                 return None
 
-            logger.info(f"Total leads found: {len(leads)}")
+            unique_leads = {lead["id"]: lead for lead in leads}.values()
+            leads = list(unique_leads)
+            logger.info(f"Total unique leads found: {len(leads)}")
 
-            # Логируем все сделки
-            for i, lead in enumerate(leads, 1):
-                logger.info(
-                    f"  Lead #{i}: ID={lead.get('id')}, "
-                    f"Pipeline={lead.get('pipeline_id')}, "
-                    f"Status={lead.get('status_id')}, "
-                    f"is_deleted={lead.get('is_deleted', False)}, "
-                    f"closed_at={lead.get('closed_at')}"
-                )
+            verified_leads = []
+            for lead in leads:
+                lead_id = lead.get("id")
+                try:
+                    lead_with_contacts = self._make_request(
+                        "GET", f"/api/v4/leads/{lead_id}", data={"with": "contacts"}
+                    )
+
+                    embedded_contacts = (
+                        lead_with_contacts.get("_embedded", {}).get("contacts", [])
+                    )
+                    contact_ids = [c.get("id") for c in embedded_contacts]
+
+                    if contact_id in contact_ids:
+                        logger.info(
+                            f"Lead {lead_id} verified: contains contact {contact_id}"
+                        )
+                        verified_leads.append(lead)
+                    else:
+                        logger.info(
+                            f"Lead {lead_id} skipped: contact {contact_id} not found (contacts: {contact_ids})"
+                        )
+
+                except Exception as e:
+                    logger.warning(f"Error verifying lead {lead_id}: {e}")
+                    continue
+
+            if not verified_leads:
+                logger.info("No leads matched contact_id after verification")
+                return None
+
+            logger.info(f"Verified leads: {len(verified_leads)}")
 
             active_leads = [
                 lead
-                for lead in leads
+                for lead in verified_leads
                 if not lead.get("is_deleted", False)
-                and lead.get("status_id") not in [142, 143]  # Исключаем закрытые статусы
-                and lead.get("closed_at") is None
+                and lead.get("status_id") not in [63242022, 142, 143]
+                and lead.get("updated_at", 0) > 0
             ]
 
-            logger.info(f"Active leads after filtering: {len(active_leads)}")
+            logger.info(f"Active leads after status filtering: {len(active_leads)}")
 
             if not active_leads:
                 logger.info("No active leads found after filtering")
