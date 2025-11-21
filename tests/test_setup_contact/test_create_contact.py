@@ -1,5 +1,5 @@
 """Интеграционный тест для создания контакта и сделки в тестовой воронке AmoCRM."""
-
+#  poetry run pytest tests/test_setup_contact/test_create_contact.py -v -s --log-cli-level=INFO
 import logging
 import random
 
