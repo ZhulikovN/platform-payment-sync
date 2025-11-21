@@ -34,21 +34,17 @@ def test_update_all_lead_fields() -> None:
 
     client = AmoCRMClient()
     
-    # ID существующей тестовой сделки
     test_lead_id = 39409997
  
     logger.info(f"\nИспользуем существующую сделку: ID={test_lead_id}")
     
     try:
-        # Шаг 0: Получить контакт из сделки и обновить его
         logger.info(f"\n{'=' * 80}")
         logger.info("ШАГ 0: Получение контакта из сделки и его обновление")
         logger.info(f"{'=' * 80}")
         
-        # Получить сделку с контактами
         lead_with_contacts = client._make_request("GET", f"/api/v4/leads/{test_lead_id}?with=contacts")
         
-        # Извлечь ID контакта из сделки
         contacts = lead_with_contacts.get("_embedded", {}).get("contacts", [])
         if not contacts:
             raise ValueError(f"У сделки {test_lead_id} нет привязанных контактов!")
@@ -56,7 +52,6 @@ def test_update_all_lead_fields() -> None:
         test_contact_id = contacts[0]["id"]
         logger.info(f"Контакт из сделки: ID={test_contact_id}")
         
-        # Получить текущий контакт
         contact_before = client._make_request("GET", f"/api/v4/contacts/{test_contact_id}")
         
         logger.info(f"\nТекущие данные контакта:")
@@ -77,7 +72,6 @@ def test_update_all_lead_fields() -> None:
             elif field_id == settings.AMO_CONTACT_FIELD_TG_USERNAME:
                 logger.info(f"  Telegram Username: {values[0].get('value') if values else 'N/A'}")
         
-        # Обновить контакт через метод client.update_contact()
         new_contact_name = "ТЕСТ: Обновленный Контакт (полный тест)3"
         new_phone = "+799912345672"
         new_email = "updated_test2@ya.com"
@@ -91,7 +85,6 @@ def test_update_all_lead_fields() -> None:
         logger.info(f"  Telegram ID: {new_tg_id}")
         logger.info(f"  Telegram Username: {new_tg_username} (без @)")
         
-        # Используем метод update_contact из клиента
         client.update_contact(
             contact_id=test_contact_id,
             name=new_contact_name,
@@ -100,11 +93,11 @@ def test_update_all_lead_fields() -> None:
             tg_id=new_tg_id,
             tg_username=new_tg_username
         )
-        logger.info(f"✅ Контакт обновлен через client.update_contact()")
+        logger.info(f"Контакт обновлен через client.update_contact()")
         
         # Сразу проверим, что реально обновилось
         contact_check = client._make_request("GET", f"/api/v4/contacts/{test_contact_id}")
-        logger.info(f"\n⚠️ Проверка сразу после обновления:")
+        logger.info(f"\nПроверка сразу после обновления:")
         logger.info(f"   Имя: {contact_check.get('name')}")
         
         check_fields = contact_check.get("custom_fields_values") or []
@@ -129,7 +122,6 @@ def test_update_all_lead_fields() -> None:
         logger.info(f"  Воронка: {lead_before.get('pipeline_id')}")
         logger.info(f"  Статус: {lead_before.get('status_id')}")
         
-        # Получить текущие кастомные поля
         current_fields = lead_before.get("custom_fields_values") or []
         current_purchase_count = 0
         current_total_paid = 0
@@ -155,7 +147,6 @@ def test_update_all_lead_fields() -> None:
             elif values:
                 logger.info(f"  {field_name}: {values[0].get('value')}")
 
-        # Шаг 2: Обновить название и бюджет
         logger.info(f"\n{'=' * 80}")
         logger.info("ШАГ 2: Обновление названия и бюджета")
         logger.info(f"{'=' * 80}")
@@ -172,9 +163,8 @@ def test_update_all_lead_fields() -> None:
             name=new_name,
             price=new_price
         )
-        logger.info(f"✅ Название и бюджет обновлены")
+        logger.info(f"Название и бюджет обновлены")
 
-        # Шаг 3: Обновить предметы, направление и счетчик через update_lead
         logger.info(f"\n{'=' * 80}")
         logger.info("ШАГ 3: Обновление предметов, направления и счетчика (через update_lead)")
         logger.info(f"{'=' * 80}")
@@ -194,9 +184,8 @@ def test_update_all_lead_fields() -> None:
             direction=direction,
             purchase_count=purchase_count
         )
-        logger.info(f"✅ Предметы, направление и счетчик обновлены через update_lead")
+        logger.info(f"Предметы, направление и счетчик обновлены через update_lead")
 
-        # Шаг 4: Инкрементальное обновление через update_lead_fields
         logger.info(f"\n{'=' * 80}")
         logger.info("ШАГ 4: Инкрементальное обновление (через update_lead_fields)")
         logger.info(f"{'=' * 80}")
@@ -209,7 +198,6 @@ def test_update_all_lead_fields() -> None:
             logger.info(f"Добавляем: 5000 руб")
             logger.info(f"После update_lead_fields будет: {current_total_paid + 5000} руб")
         
-        # Обновляем предметы снова + инкрементальные поля
         new_subjects = [1360286, 1360292]  # Русский, Обществознание
         
         client.update_lead_fields(
@@ -223,9 +211,8 @@ def test_update_all_lead_fields() -> None:
             # invoice_id="TEST-INV-12345", # Поля пока нет
             # payment_id="TEST-PAY-67890" # Поля пока нет
         )
-        logger.info(f"✅ Инкрементальное обновление выполнено")
+        logger.info(f"Инкрементальное обновление выполнено")
 
-        # Шаг 5: Добавить примечание
         logger.info(f"\n{'=' * 80}")
         logger.info("ШАГ 5: Добавление примечания")
         logger.info(f"{'=' * 80}")
@@ -239,9 +226,8 @@ Payment ID: TEST-PAY-67890
 Источник: integration_test"""
         
         client.add_lead_note(test_lead_id, note_text)
-        logger.info(f"✅ Примечание добавлено")
+        logger.info(f"Примечание добавлено")
 
-        # Шаг 6: Проверить финальное состояние
         logger.info(f"\n{'=' * 80}")
         logger.info("ШАГ 6: Проверка финального состояния")
         logger.info(f"{'=' * 80}")
@@ -252,11 +238,9 @@ Payment ID: TEST-PAY-67890
         logger.info(f"  Название: {lead_after.get('name')}")
         logger.info(f"  Бюджет: {lead_after.get('price')} руб")
         
-        # Проверить базовые поля
         assert lead_after.get("name") == new_name, f"Название должно быть '{new_name}'"
         assert lead_after.get("price") == new_price, f"Бюджет должен быть {new_price}"
         
-        # Проверить кастомные поля
         updated_fields = lead_after.get("custom_fields_values") or []
         final_purchase_count = 0
         final_total_paid = 0
@@ -294,7 +278,6 @@ Payment ID: TEST-PAY-67890
             elif settings.AMO_LEAD_FIELD_PAYMENT_ID and field_id == settings.AMO_LEAD_FIELD_PAYMENT_ID:
                 logger.info(f"  {field_name}: {values[0].get('value') if values else 'N/A'}")
 
-        # Шаг 7: Проверить обновленный контакт
         logger.info(f"\n{'=' * 80}")
         logger.info("ШАГ 7: Проверка обновленного контакта")
         logger.info(f"{'=' * 80}")
@@ -304,7 +287,6 @@ Payment ID: TEST-PAY-67890
         logger.info(f"\nФинальные данные контакта:")
         logger.info(f"  Имя: {contact_after.get('name')}")
         
-        # Проверить имя
         assert contact_after.get("name") == new_contact_name, f"Имя контакта должно быть '{new_contact_name}'"
         
         contact_fields_after = contact_after.get("custom_fields_values") or []
@@ -332,7 +314,7 @@ Payment ID: TEST-PAY-67890
                 assert tg_username_value in [new_tg_username, f"@{new_tg_username}"], \
                     f"Telegram Username должен быть {new_tg_username} или @{new_tg_username}"
 
-        logger.info(f"\n✅ Все проверки пройдены успешно!")
+        logger.info(f"\nВсе проверки пройдены успешно!")
         logger.info("=" * 80)
         logger.info("ИТОГИ:")
         logger.info(f"\nКОНТАКТ: ID={test_contact_id}")
@@ -342,18 +324,18 @@ Payment ID: TEST-PAY-67890
         logger.info(f"  • Telegram ID: обновлен → {new_tg_id}")
         logger.info(f"  • Telegram Username: обновлен → {new_tg_username}")
         logger.info(f"\nСДЕЛКА: ID={test_lead_id}")
-        logger.info(f"  • Название обновлено: ✅")
+        logger.info(f"  • Название обновлено:")
         logger.info(f"  • Бюджет обновлен: {lead_before.get('price')} → {new_price} руб")
-        logger.info(f"  • Предметы обновлены: ✅")
-        logger.info(f"  • Направление обновлено: ✅")
+        logger.info(f"  • Предметы обновлены:")
+        logger.info(f"  • Направление обновлено:")
         logger.info(f"  • Счетчик покупок: 0 → 2 (update_lead) → 3 (update_lead_fields +1)")
         if settings.AMO_LEAD_FIELD_TOTAL_PAID:
             logger.info(f"  • Общий итог: {current_total_paid} → {final_total_paid} руб (+5000)")
-        logger.info(f"  • Поля оплаты обновлены: ✅")
-        logger.info(f"  • Примечание добавлено: ✅")
+        logger.info(f"  • Поля оплаты обновлены:")
+        logger.info(f"  • Примечание добавлено:")
         logger.info("=" * 80)
 
     except Exception as e:
-        logger.error(f"\n❌ Ошибка в тесте: {e}", exc_info=True)
+        logger.error(f"\nОшибка в тесте: {e}", exc_info=True)
         raise
 
