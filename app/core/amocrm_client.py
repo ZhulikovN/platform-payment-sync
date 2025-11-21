@@ -243,6 +243,72 @@ class AmoCRMClient:
         logger.info("Contact not found by any criteria")
         return None
 
+    def find_active_lead(self, contact_id: int) -> dict[str, Any] | None:
+        """
+        Найти активную сделку для контакта (во ВСЕХ воронках).
+
+        Args:
+            contact_id: ID контакта
+
+        Returns:
+            Данные сделки или None если не найдена
+        """
+        logger.info(f"Searching active lead for contact {contact_id}")
+
+        try:
+            response = self._make_request(
+                "GET",
+                "/api/v4/leads",
+                data={"filter[contacts][]": contact_id},
+            )
+
+            leads = response.get("_embedded", {}).get("leads", [])
+
+            if not leads:
+                logger.info("No leads found for contact")
+                return None
+
+            logger.info(f"Total leads found: {len(leads)}")
+
+            # Логируем все сделки
+            for i, lead in enumerate(leads, 1):
+                logger.info(
+                    f"  Lead #{i}: ID={lead.get('id')}, "
+                    f"Pipeline={lead.get('pipeline_id')}, "
+                    f"Status={lead.get('status_id')}, "
+                    f"is_deleted={lead.get('is_deleted', False)}, "
+                    f"closed_at={lead.get('closed_at')}"
+                )
+
+            active_leads = [
+                lead
+                for lead in leads
+                if not lead.get("is_deleted", False)
+                and lead.get("status_id") not in [142, 143]  # Исключаем закрытые статусы
+                and lead.get("closed_at") is None
+            ]
+
+            logger.info(f"Active leads after filtering: {len(active_leads)}")
+
+            if not active_leads:
+                logger.info("No active leads found after filtering")
+                return None
+
+            active_lead = max(active_leads, key=lambda x: x.get("updated_at", 0))
+
+            logger.info(
+                f"Selected active lead: ID={active_lead['id']}, "
+                f"Pipeline={active_lead.get('pipeline_id')}, "
+                f"Status={active_lead.get('status_id')}, "
+                f"Updated_at={active_lead.get('updated_at')}"
+            )
+            return active_lead
+
+        except Exception as e:
+            logger.error(f"Error finding active lead: {e}")
+            return None
+
+
     def create_contact(
         self,
         name: str,
@@ -407,71 +473,6 @@ class AmoCRMClient:
         except Exception as e:
             logger.error(f"Error updating contact: {e}")
             raise
-
-    def find_active_lead(self, contact_id: int) -> dict[str, Any] | None:
-        """
-        Найти активную сделку для контакта (во ВСЕХ воронках).
-
-        Args:
-            contact_id: ID контакта
-
-        Returns:
-            Данные сделки или None если не найдена
-        """
-        logger.info(f"Searching active lead for contact {contact_id}")
-
-        try:
-            response = self._make_request(
-                "GET",
-                "/api/v4/leads",
-                data={"filter[contacts][]": contact_id},
-            )
-
-            leads = response.get("_embedded", {}).get("leads", [])
-
-            if not leads:
-                logger.info("No leads found for contact")
-                return None
-
-            logger.info(f"Total leads found: {len(leads)}")
-
-            # Логируем все сделки
-            for i, lead in enumerate(leads, 1):
-                logger.info(
-                    f"  Lead #{i}: ID={lead.get('id')}, "
-                    f"Pipeline={lead.get('pipeline_id')}, "
-                    f"Status={lead.get('status_id')}, "
-                    f"is_deleted={lead.get('is_deleted', False)}, "
-                    f"closed_at={lead.get('closed_at')}"
-                )
-
-            active_leads = [
-                lead
-                for lead in leads
-                if not lead.get("is_deleted", False)
-                and lead.get("status_id") not in [142, 143]  # Исключаем закрытые статусы
-                and lead.get("closed_at") is None
-            ]
-
-            logger.info(f"Active leads after filtering: {len(active_leads)}")
-
-            if not active_leads:
-                logger.info("No active leads found after filtering")
-                return None
-
-            active_lead = max(active_leads, key=lambda x: x.get("updated_at", 0))
-
-            logger.info(
-                f"Selected active lead: ID={active_lead['id']}, "
-                f"Pipeline={active_lead.get('pipeline_id')}, "
-                f"Status={active_lead.get('status_id')}, "
-                f"Updated_at={active_lead.get('updated_at')}"
-            )
-            return active_lead
-
-        except Exception as e:
-            logger.error(f"Error finding active lead: {e}")
-            return None
 
     def create_lead(
         self,
