@@ -56,7 +56,7 @@ def test_create_contact_and_lead_in_test_pipeline() -> None:
             tg_username=test_tg_username
         )
 
-        logger.info(f"\n✅ Контакт успешно создан!")
+        logger.info(f"\nКонтакт успешно создан!")
         logger.info(f"   ID контакта: {contact_id}")
 
         assert contact_id is not None, "ID контакта не должен быть None"
@@ -64,8 +64,8 @@ def test_create_contact_and_lead_in_test_pipeline() -> None:
         assert contact_id > 0, "ID контакта должен быть положительным числом"
 
         logger.info(f"\nШаг 2: Пропускаем find_active_lead()")
-        logger.info(f"   ⚠️ Правильная логика: контакт только что создан, сделок у него нет")
-        logger.info(f"   ⚠️ Вызов find_active_lead() был бы бесполезным API запросом")
+        logger.info(f"Правильная логика: контакт только что создан, сделок у него нет")
+        logger.info(f"Вызов find_active_lead() был бы бесполезным API запросом")
 
         logger.info(f"\nШаг 3: Создание сделки в тестовой воронке")
         logger.info(f"   Pipeline ID: {settings.AMO_PIPELINE_ID}")
@@ -77,7 +77,7 @@ def test_create_contact_and_lead_in_test_pipeline() -> None:
             price=0
         )
 
-        logger.info(f"\n✅ Сделка успешно создана!")
+        logger.info(f"\nСделка успешно создана!")
         logger.info(f"   ID сделки: {lead_id}")
 
         assert lead_id is not None, "ID сделки не должен быть None"
@@ -114,7 +114,7 @@ TGID: {test_tg_id} | TG Username: {test_tg_username}
 Источник: integration_test"""
         
         client.add_lead_note(lead_id, note_text)
-        logger.info(f"   ✅ Примечание добавлено")
+        logger.info(f"Примечание добавлено")
 
         logger.info(f"\nШаг 7: Проверка воронки и полей сделки")
         lead_response = client._make_request("GET", f"/api/v4/leads/{lead_id}")
