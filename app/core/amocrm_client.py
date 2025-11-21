@@ -23,6 +23,30 @@ class AmoCRMClient:
             "Content-Type": "application/json",
         }
 
+    def _get_purchase_count_enum_id(self, count: int) -> int | None:
+        """
+        Получить enum_id для значения счетчика покупок.
+
+        Args:
+            count: Количество покупок (1-10)
+
+        Returns:
+            enum_id для AmoCRM или None если значение вне диапазона
+        """
+        mapping = {
+            1: settings.AMO_PURCHASE_COUNT_1,
+            2: settings.AMO_PURCHASE_COUNT_2,
+            3: settings.AMO_PURCHASE_COUNT_3,
+            4: settings.AMO_PURCHASE_COUNT_4,
+            5: settings.AMO_PURCHASE_COUNT_5,
+            6: settings.AMO_PURCHASE_COUNT_6,
+            7: settings.AMO_PURCHASE_COUNT_7,
+            8: settings.AMO_PURCHASE_COUNT_8,
+            9: settings.AMO_PURCHASE_COUNT_9,
+            10: settings.AMO_PURCHASE_COUNT_10,
+        }
+        return mapping.get(count)
+
     @retry(
         stop=stop_after_attempt(settings.RETRY_MAX_ATTEMPTS),
         wait=wait_exponential(multiplier=1, min=settings.RETRY_WAIT_MIN, max=settings.RETRY_WAIT_MAX),
@@ -247,25 +271,21 @@ class AmoCRMClient:
             "custom_fields_values": [],
         }
 
-        # Добавить телефон
         if phone:
             contact_data["custom_fields_values"].append(
                 {"field_code": "PHONE", "values": [{"value": phone, "enum_code": "WORK"}]}
             )
 
-        # Добавить email
         if email:
             contact_data["custom_fields_values"].append(
                 {"field_code": "EMAIL", "values": [{"value": email, "enum_code": "WORK"}]}
             )
 
-        # Добавить tg_id
         if tg_id:
             contact_data["custom_fields_values"].append(
                 {"field_id": settings.AMO_CONTACT_FIELD_TG_ID, "values": [{"value": tg_id}]}
             )
 
-        # Добавить tg_username
         if tg_username:
             contact_data["custom_fields_values"].append(
                 {"field_id": settings.AMO_CONTACT_FIELD_TG_USERNAME, "values": [{"value": tg_username}]}
@@ -458,14 +478,26 @@ class AmoCRMClient:
         name: str,
         contact_id: int,
         price: int = 0,
+        utm_source: str | None = None,
+        utm_medium: str | None = None,
+        utm_campaign: str | None = None,
+        utm_content: str | None = None,
+        utm_term: str | None = None,
+        ym_uid: str | None = None,
     ) -> int:
         """
-        Создать новую сделку в AmoCRM.
+        Создать новую сделку в AmoCRM с UTM параметрами.
 
         Args:
             name: Название сделки
             contact_id: ID контакта
             price: Бюджет сделки
+            utm_source: UTM source
+            utm_medium: UTM medium
+            utm_campaign: UTM campaign
+            utm_content: UTM content
+            utm_term: UTM term
+            ym_uid: Yandex Metrika UID
 
         Returns:
             ID созданной сделки
@@ -478,7 +510,45 @@ class AmoCRMClient:
             "pipeline_id": settings.AMO_PIPELINE_ID,
             "status_id": settings.AMO_DEFAULT_STATUS_ID,
             "_embedded": {"contacts": [{"id": contact_id}]},
+            "custom_fields_values": [],
         }
+
+        # Добавляем UTM параметры в tracking_data поля
+        if utm_source:
+            logger.info(f"Adding UTM source: {utm_source}")
+            lead_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_UTM_SOURCE, "values": [{"value": utm_source}]}
+            )
+
+        if utm_medium:
+            logger.info(f"Adding UTM medium: {utm_medium}")
+            lead_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_UTM_MEDIUM, "values": [{"value": utm_medium}]}
+            )
+
+        if utm_campaign:
+            logger.info(f"Adding UTM campaign: {utm_campaign}")
+            lead_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_UTM_CAMPAIGN, "values": [{"value": utm_campaign}]}
+            )
+
+        if utm_content:
+            logger.info(f"Adding UTM content: {utm_content}")
+            lead_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_UTM_CONTENT, "values": [{"value": utm_content}]}
+            )
+
+        if utm_term:
+            logger.info(f"Adding UTM term: {utm_term}")
+            lead_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_UTM_TERM, "values": [{"value": utm_term}]}
+            )
+
+        if ym_uid:
+            logger.info(f"Adding Yandex Metrika UID: {ym_uid}")
+            lead_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_YM_UID, "values": [{"value": ym_uid}]}
+            )
 
         try:
             response = self._make_request("POST", "/api/v4/leads", data=[lead_data])
@@ -571,13 +641,12 @@ class AmoCRMClient:
 
             # Обновить счетчик покупок (инкрементально +1)
             # Поле "Купленных курсов" - это select с enum_id
-            # Маппинг: 1->1373533, 2->1373535, 3->1373537, ..., 10->1373551
             new_purchase_count = current_purchase_count + 1
             logger.info(f"Updating purchase count: {current_purchase_count} + 1 = {new_purchase_count}")
 
-            # Получить enum_id для нового значения (1373533 + (count-1)*2)
-            if 1 <= new_purchase_count <= 10:
-                purchase_count_enum_id = 1373533 + (new_purchase_count - 1) * 2
+            # Получить enum_id для нового значения из settings
+            purchase_count_enum_id = self._get_purchase_count_enum_id(new_purchase_count)
+            if purchase_count_enum_id:
                 update_data["custom_fields_values"].append(
                     {"field_id": settings.AMO_LEAD_FIELD_PURCHASE_COUNT, "values": [{"enum_id": purchase_count_enum_id}]}
                 )
@@ -669,6 +738,7 @@ class AmoCRMClient:
         except Exception as e:
             logger.error(f"Error updating lead: {e}")
             raise
+
 
     def add_lead_note(self, lead_id: int, text: str) -> None:
         """
