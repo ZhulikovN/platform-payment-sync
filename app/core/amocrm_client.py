@@ -348,48 +348,40 @@ class AmoCRMClient:
             phone: Телефон
             email: Email
             tg_id: Telegram ID
-            tg_username: Telegram username
+            tg_username: Telegram username (без @)
         """
         logger.info(f"Updating contact {contact_id}")
 
-        update_data: dict[str, Any] = {}
+        contact_data: dict[str, Any] = {"id": contact_id}
         custom_fields: list[dict[str, Any]] = []
 
         # Обновить имя
         if name:
-            update_data["name"] = name
+            contact_data["name"] = name
 
         # Обновить телефон
         if phone:
-            custom_fields.append(
-                {"field_code": "PHONE", "values": [{"value": phone, "enum_code": "WORK"}]}
-            )
+            custom_fields.append({"field_code": "PHONE", "values": [{"value": phone, "enum_code": "WORK"}]})
 
         # Обновить email
         if email:
-            custom_fields.append(
-                {"field_code": "EMAIL", "values": [{"value": email, "enum_code": "WORK"}]}
-            )
+            custom_fields.append({"field_code": "EMAIL", "values": [{"value": email, "enum_code": "WORK"}]})
 
         # Обновить tg_id
         if tg_id:
-            custom_fields.append(
-                {"field_id": settings.AMO_CONTACT_FIELD_TG_ID, "values": [{"value": tg_id}]}
-            )
+            custom_fields.append({"field_id": settings.AMO_CONTACT_FIELD_TG_ID, "values": [{"value": tg_id}]})
 
         # Обновить tg_username
         if tg_username:
-            custom_fields.append(
-                {"field_id": settings.AMO_CONTACT_FIELD_TG_USERNAME, "values": [{"value": tg_username}]}
-            )
+            custom_fields.append({"field_id": settings.AMO_CONTACT_FIELD_TG_USERNAME, "values": [{"value": tg_username}]})
 
         # Добавить custom_fields_values только если есть что обновлять
         if custom_fields:
-            update_data["custom_fields_values"] = custom_fields
+            contact_data["custom_fields_values"] = custom_fields
 
         try:
-            logger.debug(f"Contact update data: {update_data}")
-            self._make_request("PATCH", f"/api/v4/contacts/{contact_id}", data=update_data)
+            logger.debug(f"Contact update data: {contact_data}")
+            self._make_request("PATCH", "/api/v4/contacts", data=[contact_data])
             logger.info(f"Contact {contact_id} updated successfully")
 
         except Exception as e:
@@ -412,7 +404,7 @@ class AmoCRMClient:
             response = self._make_request(
                 "GET",
                 "/api/v4/leads",
-                data={"filter[contacts]": contact_id},
+                data={"filter[contacts][]": contact_id},
             )
 
             leads = response.get("_embedded", {}).get("leads", [])
@@ -421,17 +413,40 @@ class AmoCRMClient:
                 logger.info("No leads found for contact")
                 return None
 
-            # Отфильтровать закрытые/проигранные сделки
-            active_leads = [lead for lead in leads if not lead.get("is_deleted", False) and lead.get("status_id")]
+            logger.info(f"Total leads found: {len(leads)}")
+
+            # Логируем все сделки
+            for i, lead in enumerate(leads, 1):
+                logger.info(
+                    f"  Lead #{i}: ID={lead.get('id')}, "
+                    f"Pipeline={lead.get('pipeline_id')}, "
+                    f"Status={lead.get('status_id')}, "
+                    f"is_deleted={lead.get('is_deleted', False)}, "
+                    f"closed_at={lead.get('closed_at')}"
+                )
+
+            active_leads = [
+                lead
+                for lead in leads
+                if not lead.get("is_deleted", False)
+                and lead.get("status_id") not in [142, 143]  # Исключаем закрытые статусы
+                and lead.get("closed_at") is None
+            ]
+
+            logger.info(f"Active leads after filtering: {len(active_leads)}")
 
             if not active_leads:
-                logger.info("No active leads found")
+                logger.info("No active leads found after filtering")
                 return None
 
-            # Выбрать последнюю обновленную
             active_lead = max(active_leads, key=lambda x: x.get("updated_at", 0))
 
-            logger.info(f"Found active lead: {active_lead['id']} (pipeline: {active_lead.get('pipeline_id')})")
+            logger.info(
+                f"Selected active lead: ID={active_lead['id']}, "
+                f"Pipeline={active_lead.get('pipeline_id')}, "
+                f"Status={active_lead.get('status_id')}, "
+                f"Updated_at={active_lead.get('updated_at')}"
+            )
             return active_lead
 
         except Exception as e:
@@ -443,7 +458,6 @@ class AmoCRMClient:
         name: str,
         contact_id: int,
         price: int = 0,
-        tg_id: str | None = None,
     ) -> int:
         """
         Создать новую сделку в AmoCRM.
@@ -452,7 +466,6 @@ class AmoCRMClient:
             name: Название сделки
             contact_id: ID контакта
             price: Бюджет сделки
-            tg_id: Telegram ID (если есть отдельное поле в сделке)
 
         Returns:
             ID созданной сделки
@@ -465,12 +478,7 @@ class AmoCRMClient:
             "pipeline_id": settings.AMO_PIPELINE_ID,
             "status_id": settings.AMO_DEFAULT_STATUS_ID,
             "_embedded": {"contacts": [{"id": contact_id}]},
-            "custom_fields_values": [],
         }
-
-        # Добавить tg_id в сделку (если есть поле)
-        if tg_id and settings.AMO_LEAD_FIELD_TG_ID:
-            lead_data["custom_fields_values"].append({"field_id": settings.AMO_LEAD_FIELD_TG_ID, "values": [{"value": tg_id}]})
 
         try:
             response = self._make_request("POST", "/api/v4/leads", data=[lead_data])
@@ -537,9 +545,7 @@ class AmoCRMClient:
                 logger.info(f"Updating subjects: {subjects}")
                 # Для мультисписка нужно передавать enum_id для каждого значения
                 values = [{"enum_id": enum_id} for enum_id in subjects]
-                update_data["custom_fields_values"].append(
-                    {"field_id": settings.AMO_LEAD_FIELD_SUBJECTS, "values": values}
-                )
+                update_data["custom_fields_values"].append({"field_id": settings.AMO_LEAD_FIELD_SUBJECTS, "values": values})
 
             # Обновить направление курса (всегда)
             if direction:
@@ -645,19 +651,13 @@ class AmoCRMClient:
 
         if subjects:
             values = [{"enum_id": enum_id} for enum_id in subjects]
-            custom_fields.append(
-                {"field_id": settings.AMO_LEAD_FIELD_SUBJECTS, "values": values}
-            )
+            custom_fields.append({"field_id": settings.AMO_LEAD_FIELD_SUBJECTS, "values": values})
 
         if direction:
-            custom_fields.append(
-                {"field_id": settings.AMO_LEAD_FIELD_DIRECTION, "values": [{"enum_id": direction}]}
-            )
+            custom_fields.append({"field_id": settings.AMO_LEAD_FIELD_DIRECTION, "values": [{"enum_id": direction}]})
 
         if purchase_count:
-            custom_fields.append(
-                {"field_id": settings.AMO_LEAD_FIELD_PURCHASE_COUNT, "values": [{"enum_id": purchase_count}]}
-            )
+            custom_fields.append({"field_id": settings.AMO_LEAD_FIELD_PURCHASE_COUNT, "values": [{"enum_id": purchase_count}]})
 
         if custom_fields:
             update_data["custom_fields_values"] = custom_fields
