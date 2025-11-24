@@ -3,8 +3,8 @@
 import logging
 from typing import Any
 
-import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
+import httpx
+from tenacity import AsyncRetrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.core.amocrm_mappings import EXCLUDED_STATUSES
 from app.core.settings import settings
@@ -48,11 +48,7 @@ class AmoCRMClient:
         }
         return mapping.get(count)
 
-    @retry(
-        stop=stop_after_attempt(settings.RETRY_MAX_ATTEMPTS),
-        wait=wait_exponential(multiplier=1, min=settings.RETRY_WAIT_MIN, max=settings.RETRY_WAIT_MAX),
-    )
-    def _make_request(self, method: str, endpoint: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def _make_request(self, method: str, endpoint: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
         """
         Выполнить HTTP запрос к AmoCRM API с retry механизмом.
 
@@ -65,7 +61,7 @@ class AmoCRMClient:
             Ответ от API в виде dict
 
         Raises:
-            requests.HTTPError: При ошибке API
+            httpx.HTTPError: При ошибке API
         """
         url = f"{self.base_url}{endpoint}"
 
@@ -73,33 +69,40 @@ class AmoCRMClient:
         if data and method in ["POST", "PATCH"]:
             logger.debug(f"Request data: {data}")
 
-        try:
-            if method == "GET":
-                response = requests.get(url, headers=self.headers, params=data, timeout=30)
-            elif method == "POST":
-                response = requests.post(url, headers=self.headers, json=data, timeout=30)
-            elif method == "PATCH":
-                response = requests.patch(url, headers=self.headers, json=data, timeout=30)
-            else:
-                raise ValueError(f"Unsupported HTTP method: {method}")
+        async for attempt in AsyncRetrying(
+            stop=stop_after_attempt(settings.RETRY_MAX_ATTEMPTS),
+            wait=wait_exponential(multiplier=1, min=settings.RETRY_WAIT_MIN, max=settings.RETRY_WAIT_MAX),
+            retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError)),
+        ):
+            with attempt:
+                try:
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        if method == "GET":
+                            response = await client.get(url, headers=self.headers, params=data)
+                        elif method == "POST":
+                            response = await client.post(url, headers=self.headers, json=data)
+                        elif method == "PATCH":
+                            response = await client.patch(url, headers=self.headers, json=data)
+                        else:
+                            raise ValueError(f"Unsupported HTTP method: {method}")
 
-            if response.status_code == 429:
-                logger.warning("AmoCRM rate limit exceeded, retrying...")
-                response.raise_for_status()
+                        if response.status_code == 429:
+                            logger.warning("AmoCRM rate limit exceeded, retrying...")
+                            response.raise_for_status()
 
-            response.raise_for_status()
+                        response.raise_for_status()
 
-            logger.info(f"AmoCRM API response: {response.status_code}")
+                        logger.info(f"AmoCRM API response: {response.status_code}")
 
-            return response.json() if response.text else {}
+                        return response.json() if response.text else {}
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"AmoCRM API error: {e}")
-            if hasattr(e, "response") and e.response is not None:
-                logger.error(f"Response text: {e.response.text}")
-            raise
+                except httpx.HTTPError as e:
+                    logger.error(f"AmoCRM API error: {e}")
+                    if hasattr(e, "response") and e.response is not None:
+                        logger.error(f"Response text: {e.response.text}")
+                    raise
 
-    def find_contact_by_custom_field(self,value: str) -> dict[str, Any] | None:
+    async def find_contact_by_custom_field(self, value: str) -> dict[str, Any] | None:
         """
         Найти контакт по кастомному полю через filter[query].
 
@@ -113,7 +116,7 @@ class AmoCRMClient:
         logger.info(f"Searching contact by custom value {value} using filter[query]")
 
         try:
-            response = self._make_request(
+            response = await self._make_request(
                 "GET",
                 "/api/v4/contacts",
                 data={
@@ -141,7 +144,7 @@ class AmoCRMClient:
             logger.error(f"Error finding contact by custom field: {e}")
             return None
 
-    def find_contact_by_phone(self, phone: str) -> dict[str, Any] | None:
+    async def find_contact_by_phone(self, phone: str) -> dict[str, Any] | None:
         """
         Найти контакт по телефону.
 
@@ -154,7 +157,7 @@ class AmoCRMClient:
         logger.info(f"Searching contact by phone: {phone}")
 
         try:
-            response = self._make_request(
+            response = await self._make_request(
                 "GET",
                 "/api/v4/contacts",
                 data={"query": phone},
@@ -177,7 +180,7 @@ class AmoCRMClient:
             logger.error(f"Error finding contact by phone: {e}")
             return None
 
-    def find_contact_by_email(self, email: str) -> dict[str, Any] | None:
+    async def find_contact_by_email(self, email: str) -> dict[str, Any] | None:
         """
         Найти контакт по email.
 
@@ -190,7 +193,7 @@ class AmoCRMClient:
         logger.info(f"Searching contact by email: {email}")
 
         try:
-            response = self._make_request(
+            response = await self._make_request(
                 "GET",
                 "/api/v4/contacts",
                 data={"query": email},
@@ -213,7 +216,7 @@ class AmoCRMClient:
             logger.error(f"Error finding contact by email: {e}")
             return None
 
-    def find_contact(self, tg_id: str | None, phone: str | None, email: str | None) -> dict[str, Any] | None:
+    async def find_contact(self, tg_id: str | None, phone: str | None, email: str | None) -> dict[str, Any] | None:
         """
         Найти контакт по приоритетам: tg_id -> phone -> email.
 
@@ -228,24 +231,24 @@ class AmoCRMClient:
         logger.info(f"Finding contact: tg_id={tg_id}, phone={phone}, email={email}")
 
         if tg_id:
-            contact = self.find_contact_by_custom_field(tg_id)
+            contact = await self.find_contact_by_custom_field(tg_id)
             if contact:
                 return contact
 
         if phone:
-            contact = self.find_contact_by_phone(phone)
+            contact = await self.find_contact_by_phone(phone)
             if contact:
                 return contact
 
         if email:
-            contact = self.find_contact_by_email(email)
+            contact = await self.find_contact_by_email(email)
             if contact:
                 return contact
 
         logger.info("Contact not found by any criteria")
         return None
 
-    def find_active_lead(
+    async def find_active_lead(
         self,
         contact_id: int,
         telegram_id: str | None = None,
@@ -277,7 +280,7 @@ class AmoCRMClient:
             if telegram_id:
                 logger.info(f"Searching leads by telegram_id: {telegram_id}")
                 try:
-                    response = self._make_request(
+                    response = await self._make_request(
                         "GET",
                         "/api/v4/leads",
                         data={
@@ -294,7 +297,7 @@ class AmoCRMClient:
             if phone:
                 logger.info(f"Searching leads by phone: {phone}")
                 try:
-                    response = self._make_request(
+                    response = await self._make_request(
                         "GET",
                         "/api/v4/leads",
                         data={
@@ -311,7 +314,7 @@ class AmoCRMClient:
             if email:
                 logger.info(f"Searching leads by email: {email}")
                 try:
-                    response = self._make_request(
+                    response = await self._make_request(
                         "GET",
                         "/api/v4/leads",
                         data={
@@ -337,7 +340,7 @@ class AmoCRMClient:
             for lead in leads:
                 lead_id = lead.get("id")
                 try:
-                    lead_with_contacts = self._make_request(
+                    lead_with_contacts = await self._make_request(
                         "GET", f"/api/v4/leads/{lead_id}", data={"with": "contacts"}
                     )
 
@@ -395,7 +398,7 @@ class AmoCRMClient:
             return None
 
 
-    def create_contact(
+    async def create_contact(
         self,
         name: str,
         phone: str | None = None,
@@ -444,7 +447,7 @@ class AmoCRMClient:
             )
 
         try:
-            response = self._make_request("POST", "/api/v4/contacts", data=[contact_data])
+            response = await self._make_request("POST", "/api/v4/contacts", data=[contact_data])
 
             contact_id = response["_embedded"]["contacts"][0]["id"]
             logger.info(f"Contact created: {contact_id}")
@@ -454,7 +457,7 @@ class AmoCRMClient:
             logger.error(f"Error creating contact: {e}")
             raise
 
-    def update_contact_fields(self, contact_id: int, tg_id: str | None = None, tg_username: str | None = None) -> None:
+    async def update_contact_fields(self, contact_id: int, tg_id: str | None = None, tg_username: str | None = None) -> None:
         """
         Обновить кастомные поля контакта (идемпотентно - только пустые поля).
 
@@ -466,7 +469,7 @@ class AmoCRMClient:
         logger.info(f"Updating contact {contact_id} fields")
 
         try:
-            response = self._make_request("GET", f"/api/v4/contacts/{contact_id}", data={"with": "contacts"})
+            response = await self._make_request("GET", f"/api/v4/contacts/{contact_id}", data={"with": "contacts"})
             current_fields = response.get("custom_fields_values", [])
 
             current_tg_id = None
@@ -493,7 +496,7 @@ class AmoCRMClient:
                 )
 
             if update_data["custom_fields_values"]:
-                self._make_request("PATCH", f"/api/v4/contacts/{contact_id}", data=update_data)
+                await self._make_request("PATCH", f"/api/v4/contacts/{contact_id}", data=update_data)
                 logger.info(f"Contact {contact_id} fields updated")
             else:
                 logger.info(f"Contact {contact_id} fields are already filled, skipping update")
@@ -502,7 +505,7 @@ class AmoCRMClient:
             logger.error(f"Error updating contact fields: {e}")
             raise
 
-    def update_contact(
+    async def update_contact(
         self,
         contact_id: int,
         name: str | None = None,
@@ -547,14 +550,14 @@ class AmoCRMClient:
 
         try:
             logger.debug(f"Contact update data: {contact_data}")
-            self._make_request("PATCH", "/api/v4/contacts", data=[contact_data])
+            await self._make_request("PATCH", "/api/v4/contacts", data=[contact_data])
             logger.info(f"Contact {contact_id} updated successfully")
 
         except Exception as e:
             logger.error(f"Error updating contact: {e}")
             raise
 
-    def create_lead(
+    async def create_lead(
         self,
         name: str,
         contact_id: int,
@@ -639,7 +642,7 @@ class AmoCRMClient:
             )
 
         try:
-            response = self._make_request("POST", "/api/v4/leads", data=[lead_data])
+            response = await self._make_request("POST", "/api/v4/leads", data=[lead_data])
 
             lead_id = response["_embedded"]["leads"][0]["id"]
             logger.info(f"Lead created: {lead_id}")
@@ -649,7 +652,7 @@ class AmoCRMClient:
             logger.error(f"Error creating lead: {e}")
             raise
 
-    def update_lead_fields(
+    async def update_lead_fields(
         self,
         lead_id: int,
         subjects: list[int] | None = None,
@@ -680,7 +683,7 @@ class AmoCRMClient:
         logger.info(f"Updating lead {lead_id} fields")
 
         try:
-            response = self._make_request("GET", f"/api/v4/leads/{lead_id}")
+            response = await self._make_request("GET", f"/api/v4/leads/{lead_id}")
             current_fields = response.get("custom_fields_values") or []
 
             current_total_paid = 0
@@ -759,7 +762,7 @@ class AmoCRMClient:
                 update_data["status_id"] = status_id
 
             if update_data["custom_fields_values"] or status_id is not None:
-                self._make_request("PATCH", f"/api/v4/leads/{lead_id}", data=update_data)
+                await self._make_request("PATCH", f"/api/v4/leads/{lead_id}", data=update_data)
                 logger.info(f"Lead {lead_id} fields updated")
             else:
                 logger.info(f"No fields to update for lead {lead_id}")
@@ -768,7 +771,7 @@ class AmoCRMClient:
             logger.error(f"Error updating lead fields: {e}")
             raise
 
-    def update_lead(
+    async def update_lead(
         self,
         lead_id: int,
         name: str | None = None,
@@ -813,7 +816,7 @@ class AmoCRMClient:
             update_data["custom_fields_values"] = custom_fields
 
         try:
-            self._make_request("PATCH", f"/api/v4/leads/{lead_id}", data=update_data)
+            await self._make_request("PATCH", f"/api/v4/leads/{lead_id}", data=update_data)
             logger.info(f"Lead {lead_id} updated successfully")
 
         except Exception as e:
@@ -821,7 +824,7 @@ class AmoCRMClient:
             raise
 
 
-    def add_lead_note(self, lead_id: int, text: str) -> None:
+    async def add_lead_note(self, lead_id: int, text: str) -> None:
         """
         Добавить примечание к сделке.
 
@@ -838,7 +841,7 @@ class AmoCRMClient:
         }
 
         try:
-            self._make_request("POST", f"/api/v4/leads/{lead_id}/notes", data=[note_data])
+            await self._make_request("POST", f"/api/v4/leads/{lead_id}/notes", data=[note_data])
             logger.info(f"Note added to lead {lead_id}")
 
         except Exception as e:
