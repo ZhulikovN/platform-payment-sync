@@ -70,5 +70,8 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = Field(default="INFO", description="Уровень логирования (DEBUG, INFO, WARNING, ERROR)")
 
+    # Webhook security
+    WEBHOOK_SECRET: str = Field(..., description="Секретный ключ для проверки подлинности webhook запросов")
+
 
 settings = Settings()
