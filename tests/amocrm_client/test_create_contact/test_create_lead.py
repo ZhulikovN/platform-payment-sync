@@ -1,4 +1,5 @@
 """Интеграционный тест для проверки метода create_lead из amocrm_client.py."""
+#  poetry run pytest tests/amocrm_client/test_create_contact/test_create_lead.py -v -s --log-cli-level=INFO
 
 import logging
 
@@ -17,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.integration
-def test_create_lead_in_test_pipeline() -> None:
+@pytest.mark.asyncio
+async def test_create_lead_in_test_pipeline() -> None:
     """
     Тест создания сделки в тестовой воронке для единого тестового контакта.
     
@@ -41,7 +43,7 @@ def test_create_lead_in_test_pipeline() -> None:
     logger.info(f"   Контакт ID: {TEST_CONTACT_ID}")
 
     try:
-        lead_id = client.create_lead(
+        lead_id = await client.create_lead(
             name=f"Тестовая сделка для {TEST_CONTACT_NAME}",
             contact_id=TEST_CONTACT_ID,
             price=0,
@@ -59,14 +61,14 @@ def test_create_lead_in_test_pipeline() -> None:
         test_price = 15000
         logger.info(f"   Бюджет: {test_price} руб")
         
-        client.update_lead(lead_id=lead_id, price=test_price)
+        await client.update_lead(lead_id=lead_id, price=test_price)
         logger.info(f"Бюджет обновлен")
 
         logger.info(f"\nШаг 3: Обновление кастомных полей сделки")
         logger.info(f"   Направление курса: ЕГЭ (enum_id=1373609)")
         logger.info(f"   Предметы: Русский язык (1360286), Математика (1360288)")
         
-        client.update_lead_fields(
+        await client.update_lead_fields(
             lead_id=lead_id,
             subjects=[1360286, 1360288],  # Русский, Математика
             direction=1373609,  # ЕГЭ
@@ -81,11 +83,11 @@ Email: {TEST_CONTACT_EMAIL}
 TGID: {TEST_CONTACT_TG_ID} | TG Username: {TEST_CONTACT_TG_USERNAME}
 Источник: integration_test"""
         
-        client.add_lead_note(lead_id, note_text)
+        await client.add_lead_note(lead_id, note_text)
         logger.info(f"Примечание добавлено")
 
         logger.info(f"\nШаг 5: Проверка воронки и полей сделки")
-        lead_response = client._make_request("GET", f"/api/v4/leads/{lead_id}")
+        lead_response = await client._make_request("GET", f"/api/v4/leads/{lead_id}")
         
         actual_pipeline_id = lead_response.get("pipeline_id")
         actual_price = lead_response.get("price")
