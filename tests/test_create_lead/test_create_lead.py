@@ -1,4 +1,5 @@
 """Интеграционный тест для проверки метода create_lead из amocrm_client.py."""
+#  poetry run pytest tests/test_create_lead/test_create_lead.py -v -s --log-cli-level=INFO
 
 import logging
 
@@ -43,6 +44,8 @@ def test_create_lead_in_test_pipeline() -> None:
     try:
         lead_id = client.create_lead(
             name=f"Тестовая сделка для {TEST_CONTACT_NAME}",
+            pipeline_id = 10195498,
+            status_id=80731486,
             contact_id=TEST_CONTACT_ID,
             price=0,
             utm_content="banner_red"
