@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.integration
-def test_update_all_lead_fields() -> None:
+@pytest.mark.asyncio
+async def test_update_all_lead_fields() -> None:
     """
     Тест обновления всех полей существующей сделки.
     
@@ -43,7 +44,7 @@ def test_update_all_lead_fields() -> None:
         logger.info("ШАГ 0: Получение контакта из сделки и его обновление")
         logger.info(f"{'=' * 80}")
         
-        lead_with_contacts = client._make_request("GET", f"/api/v4/leads/{test_lead_id}?with=contacts")
+        lead_with_contacts = await client._make_request("GET", f"/api/v4/leads/{test_lead_id}?with=contacts")
         
         contacts = lead_with_contacts.get("_embedded", {}).get("contacts", [])
         if not contacts:
@@ -52,7 +53,7 @@ def test_update_all_lead_fields() -> None:
         test_contact_id = contacts[0]["id"]
         logger.info(f"Контакт из сделки: ID={test_contact_id}")
         
-        contact_before = client._make_request("GET", f"/api/v4/contacts/{test_contact_id}")
+        contact_before = await client._make_request("GET", f"/api/v4/contacts/{test_contact_id}")
         
         logger.info(f"\nТекущие данные контакта:")
         logger.info(f"  Имя: {contact_before.get('name')}")
@@ -85,7 +86,7 @@ def test_update_all_lead_fields() -> None:
         logger.info(f"  Telegram ID: {new_tg_id}")
         logger.info(f"  Telegram Username: {new_tg_username} (без @)")
         
-        client.update_contact(
+        await client.update_contact(
             contact_id=test_contact_id,
             name=new_contact_name,
             phone=new_phone,
@@ -96,7 +97,7 @@ def test_update_all_lead_fields() -> None:
         logger.info(f"Контакт обновлен через client.update_contact()")
         
         # Сразу проверим, что реально обновилось
-        contact_check = client._make_request("GET", f"/api/v4/contacts/{test_contact_id}")
+        contact_check = await client._make_request("GET", f"/api/v4/contacts/{test_contact_id}")
         logger.info(f"\nПроверка сразу после обновления:")
         logger.info(f"   Имя: {contact_check.get('name')}")
         
@@ -114,7 +115,7 @@ def test_update_all_lead_fields() -> None:
         logger.info("ШАГ 1: Получение текущего состояния сделки")
         logger.info(f"{'=' * 80}")
         
-        lead_before = client._make_request("GET", f"/api/v4/leads/{test_lead_id}")
+        lead_before = await client._make_request("GET", f"/api/v4/leads/{test_lead_id}")
         
         logger.info(f"\nТекущие данные:")
         logger.info(f"  Название: {lead_before.get('name')}")
@@ -158,7 +159,7 @@ def test_update_all_lead_fields() -> None:
         logger.info(f"  Название: {new_name}")
         logger.info(f"  Бюджет: {new_price} руб")
         
-        client.update_lead(
+        await client.update_lead(
             lead_id=test_lead_id,
             name=new_name,
             price=new_price
@@ -178,7 +179,7 @@ def test_update_all_lead_fields() -> None:
         logger.info(f"  Направление: ОГЭ (1373607)")
         logger.info(f"  Купленных курсов: 2 (enum_id: 1373535)")
         
-        client.update_lead(
+        await client.update_lead(
             lead_id=test_lead_id,
             subjects=subjects,
             direction=direction,
@@ -200,7 +201,7 @@ def test_update_all_lead_fields() -> None:
         
         new_subjects = [1360286, 1360292]  # Русский, Обществознание
         
-        client.update_lead_fields(
+        await client.update_lead_fields(
             lead_id=test_lead_id,
             subjects=new_subjects,
             direction=1373607,  # ОГЭ
@@ -225,14 +226,14 @@ Invoice ID: TEST-INV-12345
 Payment ID: TEST-PAY-67890
 Источник: integration_test"""
         
-        client.add_lead_note(test_lead_id, note_text)
+        await client.add_lead_note(test_lead_id, note_text)
         logger.info(f"Примечание добавлено")
 
         logger.info(f"\n{'=' * 80}")
         logger.info("ШАГ 6: Проверка финального состояния")
         logger.info(f"{'=' * 80}")
         
-        lead_after = client._make_request("GET", f"/api/v4/leads/{test_lead_id}")
+        lead_after = await client._make_request("GET", f"/api/v4/leads/{test_lead_id}")
         
         logger.info(f"\nФинальные данные:")
         logger.info(f"  Название: {lead_after.get('name')}")
@@ -282,7 +283,7 @@ Payment ID: TEST-PAY-67890
         logger.info("ШАГ 7: Проверка обновленного контакта")
         logger.info(f"{'=' * 80}")
         
-        contact_after = client._make_request("GET", f"/api/v4/contacts/{test_contact_id}")
+        contact_after = await client._make_request("GET", f"/api/v4/contacts/{test_contact_id}")
         
         logger.info(f"\nФинальные данные контакта:")
         logger.info(f"  Имя: {contact_after.get('name')}")

@@ -1,5 +1,5 @@
 """Интеграционный тест для обновления этапа сделки через update_lead_fields."""
-# pytest tests/test_update_lead_fields/test_update_lead_status.py -v -s --log-cli-level=INFO
+# pytest tests/amocrm_client/test_update_lead_fields/test_update_lead_status.py -v -s --log-cli-level=INFO
 
 import logging
 
@@ -16,7 +16,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 @pytest.mark.integration
-def test_update_lead_fields_with_subjects_and_status() -> None:
+@pytest.mark.asyncio
+async def test_update_lead_fields_with_subjects_and_status() -> None:
     """
     Тест обновления предметов И этапа одновременно.
     
@@ -28,12 +29,12 @@ def test_update_lead_fields_with_subjects_and_status() -> None:
 
     client = AmoCRMClient()
     
-    test_lead_id = 39428289
+    test_lead_id = 39428477
     
     logger.info(f"\nИспользуем тестовую сделку: ID={test_lead_id}")
     
     try:
-        lead_before = client._make_request("GET", f"/api/v4/leads/{test_lead_id}")
+        lead_before = await client._make_request("GET", f"/api/v4/leads/{test_lead_id}")
         
         current_status = lead_before.get("status_id")
         
@@ -42,15 +43,14 @@ def test_update_lead_fields_with_subjects_and_status() -> None:
         new_subjects = [settings.AMO_SUBJECT_RUSSIAN, settings.AMO_SUBJECT_HISTORY]
         new_direction = settings.AMO_DIRECTION_EGE
         new_status = 80731242
-        test_lead_id = 39428289
 
         logger.info(f"\nОбновляем:")
         logger.info(f"  Предметы: Русский + История")
         logger.info(f"  Направление: ЕГЭ")
-        logger.info(f"  Этап: {new_status} (Автооплаты ООО)")
+        logger.info(f"  Этап: {new_status}")
         
         # Обновить все поля
-        client.update_lead_fields(
+        await client.update_lead_fields(
             lead_id=test_lead_id,
             subjects=new_subjects,
             direction=new_direction,
@@ -59,7 +59,7 @@ def test_update_lead_fields_with_subjects_and_status() -> None:
         
         logger.info(f"\nМетод update_lead_fields вызван")
         
-        lead_after = client._make_request("GET", f"/api/v4/leads/{test_lead_id}")
+        lead_after = await client._make_request("GET", f"/api/v4/leads/{test_lead_id}")
         
         updated_status = lead_after.get("status_id")
         
