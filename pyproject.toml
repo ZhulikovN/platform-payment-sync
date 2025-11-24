@@ -26,6 +26,7 @@ dependencies = [
   "toml-sort (>=0.24.3,<0.25.0)",
   "uvicorn (>=0.38.0,<0.39.0)",
   "amocrm-api (>=2.6.1,<3.0.0)",
+  "httpx (>=0.28.1,<0.29.0)",
 ]
 description = ""
 name = "platform-payment-sync"
