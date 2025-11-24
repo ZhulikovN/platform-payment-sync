@@ -78,6 +78,8 @@ class Settings(BaseSettings):
     AMO_PIPELINE_SITE: int = Field(..., description="ID воронки 'Сайт'")
     AMO_PIPELINE_PARTNERS: int = Field(..., description="ID воронки 'ПАРТНЕРЫ'")
     AMO_PIPELINE_YANDEX: int = Field(..., description="ID воронки 'Сайт Яндекс'")
+    AMO_PIPELINE_ID: int = Field(..., description="ID воронки 'ПАРТНЕРЫ'")
+    AMO_DEFAULT_STATUS_ID: int = Field(..., description="ID воронки 'ПАРТНЕРЫ'")
 
     # Статусы сделок (общие для всех воронок)
     STATUS_SUCCESS: int = Field(default=142, description="ID статуса 'Успешно реализовано' (общий для всех воронок)")
