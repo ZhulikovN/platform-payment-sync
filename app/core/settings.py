@@ -73,5 +73,11 @@ class Settings(BaseSettings):
     # Webhook security
     WEBHOOK_SECRET: str = Field(..., description="Секретный ключ для проверки подлинности webhook запросов")
 
+    # CORS settings
+    ALLOWED_ORIGINS: str = Field(
+        default="https://pl.el-ed.ru",
+        description="Разрешенные CORS origins (через запятую)"
+    )
+
 
 settings = Settings()
