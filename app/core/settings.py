@@ -28,6 +28,25 @@ class Settings(BaseSettings):
     AMO_LEAD_FIELD_DIRECTION: int = Field(..., description="ID поля 'Направления курса' в сделке")
     AMO_LEAD_FIELD_PURCHASE_COUNT: int = Field(..., description="ID поля 'Купленных курсов' в сделке")
 
+    # Enum ID для предметов
+    AMO_SUBJECT_OBSHCHESTVO: int = Field(..., description="enum_id для 'Обществознание'")
+    AMO_SUBJECT_ENGLISH: int = Field(..., description="enum_id для 'Английский язык'")
+    AMO_SUBJECT_HISTORY: int = Field(..., description="enum_id для 'История'")
+    AMO_SUBJECT_RUSSIAN: int = Field(..., description="enum_id для 'Русский'")
+    AMO_SUBJECT_PHYSICS: int = Field(..., description="enum_id для 'Физика'")
+    AMO_SUBJECT_CHEMISTRY: int = Field(..., description="enum_id для 'Химия'")
+    AMO_SUBJECT_LITERATURE: int = Field(..., description="enum_id для 'Литература'")
+    AMO_SUBJECT_MATH_PROF_MASHA: int = Field(..., description="enum_id для 'Проф. мат (Маша)'")
+    AMO_SUBJECT_MATH_BASE: int = Field(..., description="enum_id для 'Математика (база)'")
+    AMO_SUBJECT_BIOLOGY_ZHENYA: int = Field(..., description="enum_id для 'Биология (Женя)'")
+    AMO_SUBJECT_BIOLOGY_GELYA: int = Field(..., description="enum_id для 'Биология (Геля)'")
+    AMO_SUBJECT_INFORMATICS: int = Field(..., description="enum_id для 'Информатика'")
+    AMO_SUBJECT_MATH_PROF_SASHA: int = Field(..., description="enum_id для 'Проф. мат (Саша)'")
+
+    # Enum ID для направлений
+    AMO_DIRECTION_OGE: int = Field(..., description="enum_id для направления 'ОГЭ'")
+    AMO_DIRECTION_EGE: int = Field(...,  description="enum_id для направления 'ЕГЭ'")
+
     AMO_PURCHASE_COUNT_1: int = Field(..., description="enum_id для значения '1' в поле 'Купленных курсов'")
     AMO_PURCHASE_COUNT_2: int = Field(..., description="enum_id для значения '2' в поле 'Купленных курсов'")
     AMO_PURCHASE_COUNT_3: int = Field(..., description="enum_id для значения '3' в поле 'Купленных курсов'")
@@ -40,12 +59,12 @@ class Settings(BaseSettings):
     AMO_PURCHASE_COUNT_10: int = Field(..., description="enum_id для значения '10' в поле 'Купленных курсов'")
 
     # UTM поля статистики (tracking_data)
-    AMO_LEAD_FIELD_UTM_SOURCE: int = Field(default=688736, description="ID поля 'utm_source' в сделке")
-    AMO_LEAD_FIELD_UTM_MEDIUM: int = Field(default=688744, description="ID поля 'utm_medium' в сделке")
-    AMO_LEAD_FIELD_UTM_CAMPAIGN: int = Field(default=688742, description="ID поля 'utm_campaign' в сделке")
-    AMO_LEAD_FIELD_UTM_CONTENT: int = Field(default=712229, description="ID поля 'utm_content' в сделке")
-    AMO_LEAD_FIELD_UTM_TERM: int = Field(default=688740, description="ID поля 'utm_term' в сделке")
-    AMO_LEAD_FIELD_YM_UID: int = Field(default=712233, description="ID поля '_ym_uid' в сделке")
+    AMO_LEAD_FIELD_UTM_SOURCE: int = Field(..., description="ID поля 'utm_source' в сделке")
+    AMO_LEAD_FIELD_UTM_MEDIUM: int = Field(..., description="ID поля 'utm_medium' в сделке")
+    AMO_LEAD_FIELD_UTM_CAMPAIGN: int = Field(..., description="ID поля 'utm_campaign' в сделке")
+    AMO_LEAD_FIELD_UTM_CONTENT: int = Field(..., description="ID поля 'utm_content' в сделке")
+    AMO_LEAD_FIELD_UTM_TERM: int = Field(..., description="ID поля 'utm_term' в сделке")
+    AMO_LEAD_FIELD_YM_UID: int = Field(..., description="ID поля '_ym_uid' в сделке")
 
     # New fields (создать позже)
     AMO_LEAD_FIELD_LAST_PAYMENT_AMOUNT: int | None = Field(None, description="ID поля 'Сумма последней оплаты' в сделке")
@@ -55,8 +74,29 @@ class Settings(BaseSettings):
     AMO_LEAD_FIELD_INVOICE_ID: int | None = Field(None, description="ID поля 'Invoice ID' в сделке")
     AMO_LEAD_FIELD_PAYMENT_ID: int | None = Field(None, description="ID поля 'Payment ID' в сделке")
 
-    AMO_PIPELINE_ID: int = Field(..., description="ID целевой воронки для создания новых сделок")
-    AMO_DEFAULT_STATUS_ID: int = Field(..., description="ID статуса по умолчанию при создании сделки")
+    # Воронки для автоплаты (определяются по UTM)
+    AMO_PIPELINE_SITE: int = Field(..., description="ID воронки 'Сайт'")
+    AMO_PIPELINE_PARTNERS: int = Field(..., description="ID воронки 'ПАРТНЕРЫ'")
+    AMO_PIPELINE_YANDEX: int = Field(..., description="ID воронки 'Сайт Яндекс'")
+
+    # Статусы сделок (общие для всех воронок)
+    STATUS_SUCCESS: int = Field(default=142, description="ID статуса 'Успешно реализовано' (общий для всех воронок)")
+    STATUS_CLOSED: int = Field(default=143, description="ID статуса 'Закрыто и не реализовано' (общий для всех воронок)")
+
+    # Этапы "Автооплаты ООО" для каждой воронки
+    AMO_STATUS_AUTOPAY_SITE: int = Field(..., description="ID этапа 'Автооплаты ООО' в воронке Сайт")
+    AMO_STATUS_AUTOPAY_PARTNERS: int = Field(..., description="ID этапа 'Автооплаты ООО' в воронке ПАРТНЕРЫ")
+    AMO_STATUS_AUTOPAY_YANDEX: int = Field(..., description="ID этапа 'Автооплаты ООО' в воронке Сайт Яндекс")
+
+    # UTM правила для определения воронки
+    PARTNER_SOURCES: str = Field(
+        ...,
+        description="utm_source для воронки ПАРТНЕРЫ (через запятую)"
+    )
+    YANDEX_MEDIUMS: str = Field(
+        ...,
+        description="utm_medium для воронки Сайт Яндекс (через запятую)"
+    )
 
     CREATE_IF_NOT_FOUND: bool = Field(
         default=False,
