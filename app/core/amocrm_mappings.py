@@ -10,19 +10,6 @@ EXCLUDED_STATUSES = [
     settings.STATUS_CLOSED,
 ]
 
-PURCHASE_COUNT_MAPPING: dict[int, int] = {
-    1: settings.AMO_PURCHASE_COUNT_1,
-    2: settings.AMO_PURCHASE_COUNT_2,
-    3: settings.AMO_PURCHASE_COUNT_3,
-    4: settings.AMO_PURCHASE_COUNT_4,
-    5: settings.AMO_PURCHASE_COUNT_5,
-    6: settings.AMO_PURCHASE_COUNT_6,
-    7: settings.AMO_PURCHASE_COUNT_7,
-    8: settings.AMO_PURCHASE_COUNT_8,
-    9: settings.AMO_PURCHASE_COUNT_9,
-    10: settings.AMO_PURCHASE_COUNT_10,
-}
-
 SUBJECTS_MAPPING: dict[str, int] = {
     "Обществознание": settings.AMO_SUBJECT_OBSHCHESTVO,
     "Английский язык": settings.AMO_SUBJECT_ENGLISH,
@@ -48,19 +35,6 @@ DIRECTION_MAPPING: dict[str, int] = {
     "ОГЭ": settings.AMO_DIRECTION_OGE,
     "ЕГЭ": settings.AMO_DIRECTION_EGE,
 }
-
-
-def get_purchase_count_enum_id(count: int) -> int | None:
-    """
-    Получить enum_id для счетчика покупок.
-
-    Args:
-        count: Количество покупок (1-10)
-
-    Returns:
-        enum_id для AmoCRM или None если значение вне диапазона
-    """
-    return PURCHASE_COUNT_MAPPING.get(count)
 
 
 def get_subject_enum_ids(subject_names: list[str]) -> list[int]:
@@ -92,19 +66,3 @@ def get_direction_enum_id(direction_name: str) -> int | None:
         enum_id для AmoCRM или None если курс не найден
     """
     return DIRECTION_MAPPING.get(direction_name)
-
-
-def get_reverse_purchase_count(enum_id: int) -> int | None:
-    """
-    Получить числовое значение счетчика по enum_id.
-
-    Args:
-        enum_id: enum_id из AmoCRM
-
-    Returns:
-        Числовое значение (1-10) или None если не найдено
-    """
-    for count, eid in PURCHASE_COUNT_MAPPING.items():
-        if eid == enum_id:
-            return count
-    return None
