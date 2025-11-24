@@ -35,6 +35,61 @@ class PaymentProcessor:
         """
         self.client = amocrm_client or AmoCRMClient()
 
+    def determine_pipeline_and_status(self, utm: dict) -> tuple[int, int]:
+        """
+        Определить воронку и этап на основе UTM меток.
+
+        ЛОГИКА:
+        ВСЕ автооплаты идут в этап "Автооплаты ООО", но в разные воронки:
+        1. ПАРТНЕРЫ - если utm_source совпал с правилами
+        2. Сайт Яндекс - если utm_medium совпал с правилами
+        3. Сайт - по умолчанию (если ничего не совпало)
+
+        Args:
+            utm: Словарь с UTM метками из payment.course_order.utm
+
+        Returns:
+            Кортеж (pipeline_id, status_id):
+            - pipeline_id: ID воронки
+            - status_id: ID этапа "Автооплаты ООО" для соответствующей воронки
+        """
+        utm_source = (utm.get("source") or "").lower()
+        utm_medium = (utm.get("medium") or "").lower()
+
+        logger.info(f"Определение воронки: utm_source='{utm_source}', utm_medium='{utm_medium}'")
+
+        partner_sources = settings.PARTNER_SOURCES.split(",")
+        for partner in partner_sources:
+            if partner.strip().lower() in utm_source:
+                logger.info(
+                    f"✓ UTM совпали: ПАРТНЕРЫ (ID={settings.AMO_PIPELINE_PARTNERS}, "
+                    f"utm_source содержит '{partner}') → Автооплаты ООО"
+                )
+                return (
+                    settings.AMO_PIPELINE_PARTNERS,
+                    settings.AMO_STATUS_AUTOPAY_PARTNERS,
+                )
+
+        yandex_mediums = settings.YANDEX_MEDIUMS.split(",")
+        for medium in yandex_mediums:
+            if medium.strip().lower() in utm_medium:
+                logger.info(
+                    f"✓ UTM совпали: Сайт Яндекс (ID={settings.AMO_PIPELINE_YANDEX}, "
+                    f"utm_medium содержит '{medium}') → Автооплаты ООО"
+                )
+                return (
+                    settings.AMO_PIPELINE_YANDEX,
+                    settings.AMO_STATUS_AUTOPAY_YANDEX,
+                )
+
+        logger.info(
+            f"✓ UTM НЕ совпали: Сайт (ID={settings.AMO_PIPELINE_SITE}, по умолчанию) → Автооплаты ООО"
+        )
+        return (
+            settings.AMO_PIPELINE_SITE,
+            settings.AMO_STATUS_AUTOPAY_SITE,
+        )
+
     def process_payment(self, payment: PaymentWebhook) -> ProcessResult:
         """
         Обработать оплату с платформы.
@@ -61,6 +116,11 @@ class PaymentProcessor:
         logger.info("=" * 80)
 
         try:
+            utm = payment.course_order.utm
+            pipeline_id, status_id = self.determine_pipeline_and_status(utm)
+            
+            logger.info(f"Целевая воронка: pipeline_id={pipeline_id}, status_id={status_id}")
+
             # Шаг 1: Проверка дубликата по payment_id
             # TODO: Реализовать через EventLogger.is_payment_processed()
             # if self.is_payment_duplicate(payment_id):
@@ -86,7 +146,7 @@ class PaymentProcessor:
             self._update_contact_fields(contact_id, payment)
 
             # Шаг 4: Матчинг активной сделки
-            lead = self._find_or_create_lead(contact_id, payment)
+            lead = self._find_or_create_lead(contact_id, payment, pipeline_id, status_id)
             if lead is None:
                 logger.error("Lead not found and CREATE_IF_NOT_FOUND=False")
                 return ProcessResult(
@@ -99,7 +159,7 @@ class PaymentProcessor:
             logger.info(f"✓ Lead resolved: ID={lead_id}")
 
             # Шаг 5: Обновление полей сделки
-            self._update_lead_fields(lead_id, payment)
+            self._update_lead_fields(lead_id, payment, status_id)
 
             # Шаг 6: Создание примечания
             self._add_payment_note(lead_id, payment)
@@ -198,7 +258,11 @@ class PaymentProcessor:
         )
 
     def _find_or_create_lead(
-        self, contact_id: int, payment: PaymentWebhook
+        self,
+        contact_id: int,
+        payment: PaymentWebhook,
+        pipeline_id: int,
+        status_id: int
     ) -> dict | int | None:
         """
         Найти или создать активную сделку для контакта.
@@ -208,6 +272,8 @@ class PaymentProcessor:
         Args:
             contact_id: ID контакта
             payment: Данные об оплате
+            pipeline_id: ID воронки для создания новой сделки
+            status_id: ID этапа для создания новой сделки
 
         Returns:
             Данные сделки (dict) или ID сделки (int), или None если не найдена
@@ -219,7 +285,6 @@ class PaymentProcessor:
 
         logger.info(f"Поиск активной сделки для контакта {contact_id}...")
 
-        # Поиск активной сделки (во всех воронках)
         lead = self.client.find_active_lead(
             contact_id=contact_id,
             telegram_id=telegram_id,
@@ -242,7 +307,7 @@ class PaymentProcessor:
 
         # Создать новую сделку в целевой воронке с UTM
         logger.info(
-            f"Создание новой сделки в воронке {settings.AMO_PIPELINE_ID} с UTM метками..."
+            f"Создание новой сделки в воронке {pipeline_id} (этап {status_id}) с UTM метками..."
         )
 
         # Название сделки
@@ -271,6 +336,8 @@ class PaymentProcessor:
             name=lead_name,
             contact_id=contact_id,
             price=price,
+            pipeline_id=pipeline_id,
+            status_id=status_id,
             utm_source=utm_source,
             utm_medium=utm_medium,
             utm_campaign=utm_campaign,
@@ -282,7 +349,7 @@ class PaymentProcessor:
         logger.info(f"✓ Сделка создана: ID={lead_id}")
         return lead_id
 
-    def _update_lead_fields(self, lead_id: int, payment: PaymentWebhook) -> None:
+    def _update_lead_fields(self, lead_id: int, payment: PaymentWebhook, status_id: int) -> None:
         """
         Обновить кастомные поля сделки.
 
@@ -295,10 +362,12 @@ class PaymentProcessor:
         - Дата/время последней оплаты
         - Invoice ID
         - Payment ID
+        - Этап сделки (согласно UTM)
 
         Args:
             lead_id: ID сделки
             payment: Данные об оплате
+            status_id: ID этапа для обновления сделки
         """
         logger.info(f"Обновление полей сделки {lead_id}...")
 
@@ -338,20 +407,21 @@ class PaymentProcessor:
         invoice_id = payment.course_order.invoice_id
         payment_id = payment.course_order.payment_id
 
-        # Обновить поля
+        # Обновить поля (включая перевод в целевой этап согласно UTM)
         self.client.update_lead_fields(
             lead_id=lead_id,
             subjects=subjects_enum_ids if subjects_enum_ids else None,
             direction=direction_enum_id,
-            last_payment_amount=amount,
-            total_paid_increment=amount,  # Инкрементально добавить к общему итогу
-            payment_status=payment_status,
-            last_payment_date=payment_date,
-            invoice_id=invoice_id,
-            payment_id=payment_id,
+            # last_payment_amount=amount,
+            # total_paid_increment=amount,  # Инкрементально добавить к общему итогу
+            # payment_status=payment_status,
+            # last_payment_date=payment_date,
+            # invoice_id=invoice_id,
+            # payment_id=payment_id,
+            status_id=status_id,  # Перевести в целевой этап
         )
 
-        logger.info(f"✓ Поля сделки {lead_id} обновлены")
+        logger.info(f"✓ Поля сделки {lead_id} обновлены, переведена в этап {status_id}")
 
     def _add_payment_note(self, lead_id: int, payment: PaymentWebhook) -> None:
         """
