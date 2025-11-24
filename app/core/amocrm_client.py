@@ -6,6 +6,7 @@ from typing import Any
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from app.core.amocrm_mappings import EXCLUDED_STATUSES
 from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -226,19 +227,16 @@ class AmoCRMClient:
         """
         logger.info(f"Finding contact: tg_id={tg_id}, phone={phone}, email={email}")
 
-        # Приоритет 1: поиск по tg_id
         if tg_id:
             contact = self.find_contact_by_custom_field(tg_id)
             if contact:
                 return contact
 
-        # Приоритет 2: поиск по телефону
         if phone:
             contact = self.find_contact_by_phone(phone)
             if contact:
                 return contact
 
-        # Приоритет 3: поиск по email
         if email:
             contact = self.find_contact_by_email(email)
             if contact:
@@ -276,7 +274,6 @@ class AmoCRMClient:
         try:
             leads = []
 
-            # Приоритет 1: поиск по telegram_id
             if telegram_id:
                 logger.info(f"Searching leads by telegram_id: {telegram_id}")
                 try:
@@ -294,7 +291,6 @@ class AmoCRMClient:
                 except Exception as e:
                     logger.warning(f"Error searching leads by telegram_id: {e}")
 
-            # Приоритет 2: поиск по phone
             if phone:
                 logger.info(f"Searching leads by phone: {phone}")
                 try:
@@ -312,7 +308,6 @@ class AmoCRMClient:
                 except Exception as e:
                     logger.warning(f"Error searching leads by phone: {e}")
 
-            # Приоритет 3: поиск по email
             if email:
                 logger.info(f"Searching leads by email: {email}")
                 try:
@@ -375,7 +370,7 @@ class AmoCRMClient:
                 lead
                 for lead in verified_leads
                 if not lead.get("is_deleted", False)
-                and lead.get("status_id") not in [63242022, 142, 143]
+                and lead.get("status_id") not in EXCLUDED_STATUSES
                 and lead.get("updated_at", 0) > 0
             ]
 
@@ -532,27 +527,21 @@ class AmoCRMClient:
         contact_data: dict[str, Any] = {"id": contact_id}
         custom_fields: list[dict[str, Any]] = []
 
-        # Обновить имя
         if name:
             contact_data["name"] = name
 
-        # Обновить телефон
         if phone:
             custom_fields.append({"field_code": "PHONE", "values": [{"value": phone, "enum_code": "WORK"}]})
 
-        # Обновить email
         if email:
             custom_fields.append({"field_code": "EMAIL", "values": [{"value": email, "enum_code": "WORK"}]})
 
-        # Обновить tg_id
         if tg_id:
             custom_fields.append({"field_id": settings.AMO_CONTACT_FIELD_TG_ID, "values": [{"value": tg_id}]})
 
-        # Обновить tg_username
         if tg_username:
             custom_fields.append({"field_id": settings.AMO_CONTACT_FIELD_TG_USERNAME, "values": [{"value": tg_username}]})
 
-        # Добавить custom_fields_values только если есть что обновлять
         if custom_fields:
             contact_data["custom_fields_values"] = custom_fields
 
@@ -570,6 +559,8 @@ class AmoCRMClient:
         name: str,
         contact_id: int,
         price: int = 0,
+        pipeline_id: int | None = None,
+        status_id: int | None = None,
         utm_source: str | None = None,
         utm_medium: str | None = None,
         utm_campaign: str | None = None,
@@ -584,6 +575,8 @@ class AmoCRMClient:
             name: Название сделки
             contact_id: ID контакта
             price: Бюджет сделки
+            pipeline_id: ID воронки (если не указан - используется AMO_PIPELINE_ID из настроек)
+            status_id: ID этапа (если не указан - используется AMO_DEFAULT_STATUS_ID из настроек)
             utm_source: UTM source
             utm_medium: UTM medium
             utm_campaign: UTM campaign
@@ -594,18 +587,21 @@ class AmoCRMClient:
         Returns:
             ID созданной сделки
         """
+        target_pipeline_id = pipeline_id if pipeline_id is not None else settings.AMO_PIPELINE_ID
+        target_status_id = status_id if status_id is not None else settings.AMO_DEFAULT_STATUS_ID
+
         logger.info(f"Creating lead: {name} for contact {contact_id}")
+        logger.info(f"  Pipeline: {target_pipeline_id}, Status: {target_status_id}")
 
         lead_data: dict[str, Any] = {
             "name": name,
             "price": price,
-            "pipeline_id": settings.AMO_PIPELINE_ID,
-            "status_id": settings.AMO_DEFAULT_STATUS_ID,
+            "pipeline_id": target_pipeline_id,
+            "status_id": target_status_id,
             "_embedded": {"contacts": [{"id": contact_id}]},
             "custom_fields_values": [],
         }
 
-        # Добавляем UTM параметры в tracking_data поля
         if utm_source:
             logger.info(f"Adding UTM source: {utm_source}")
             lead_data["custom_fields_values"].append(
@@ -664,6 +660,7 @@ class AmoCRMClient:
         last_payment_date: str | None = None,
         invoice_id: str | None = None,
         payment_id: str | None = None,
+        status_id: int | None = None,
     ) -> None:
         """
         Обновить кастомные поля сделки.
@@ -678,15 +675,14 @@ class AmoCRMClient:
             last_payment_date: Дата последней оплаты
             invoice_id: Invoice ID
             payment_id: Payment ID
+            status_id: ID этапа для перевода сделки
         """
         logger.info(f"Updating lead {lead_id} fields")
 
         try:
-            # Получить текущие значения сделки
             response = self._make_request("GET", f"/api/v4/leads/{lead_id}")
             current_fields = response.get("custom_fields_values") or []
 
-            # Получить текущий общий оплаченный итог
             current_total_paid = 0
             current_purchase_count = 0
 
@@ -694,36 +690,28 @@ class AmoCRMClient:
                 if settings.AMO_LEAD_FIELD_TOTAL_PAID and field["field_id"] == settings.AMO_LEAD_FIELD_TOTAL_PAID:
                     current_total_paid = int(field["values"][0]["value"]) if field["values"] else 0
                 elif field["field_id"] == settings.AMO_LEAD_FIELD_PURCHASE_COUNT:
-                    # Поле "Купленных курсов" - это select, значение хранится как текст
                     current_purchase_count = int(field["values"][0]["value"]) if field["values"] else 0
 
-            # Подготовить данные для обновления
             update_data: dict[str, Any] = {"custom_fields_values": []}
 
-            # tg_id в сделке не используется (есть только в контакте)
 
-            # Обновить предметы (всегда)
             if subjects:
                 logger.info(f"Updating subjects: {subjects}")
-                # Для мультисписка нужно передавать enum_id для каждого значения
                 values = [{"enum_id": enum_id} for enum_id in subjects]
                 update_data["custom_fields_values"].append({"field_id": settings.AMO_LEAD_FIELD_SUBJECTS, "values": values})
 
-            # Обновить направление курса (всегда)
             if direction:
                 logger.info(f"Updating direction: {direction}")
                 update_data["custom_fields_values"].append(
                     {"field_id": settings.AMO_LEAD_FIELD_DIRECTION, "values": [{"enum_id": direction}]}
                 )
 
-            # Обновить сумму последней оплаты (всегда)
             if last_payment_amount is not None and settings.AMO_LEAD_FIELD_LAST_PAYMENT_AMOUNT:
                 logger.info(f"Updating last payment amount: {last_payment_amount}")
                 update_data["custom_fields_values"].append(
                     {"field_id": settings.AMO_LEAD_FIELD_LAST_PAYMENT_AMOUNT, "values": [{"value": last_payment_amount}]}
                 )
 
-            # Обновить общий оплаченный итог (инкрементально)
             if total_paid_increment is not None and settings.AMO_LEAD_FIELD_TOTAL_PAID:
                 new_total_paid = current_total_paid + total_paid_increment
                 logger.info(f"Updating total paid: {current_total_paid} + {total_paid_increment} = {new_total_paid}")
@@ -731,12 +719,9 @@ class AmoCRMClient:
                     {"field_id": settings.AMO_LEAD_FIELD_TOTAL_PAID, "values": [{"value": new_total_paid}]}
                 )
 
-            # Обновить счетчик покупок (инкрементально +1)
-            # Поле "Купленных курсов" - это select с enum_id
             new_purchase_count = current_purchase_count + 1
             logger.info(f"Updating purchase count: {current_purchase_count} + 1 = {new_purchase_count}")
 
-            # Получить enum_id для нового значения из settings
             purchase_count_enum_id = self._get_purchase_count_enum_id(new_purchase_count)
             if purchase_count_enum_id:
                 update_data["custom_fields_values"].append(
@@ -769,7 +754,11 @@ class AmoCRMClient:
                     {"field_id": settings.AMO_LEAD_FIELD_PAYMENT_ID, "values": [{"value": payment_id}]}
                 )
 
-            if update_data["custom_fields_values"]:
+            if status_id is not None:
+                logger.info(f"Updating lead status to: {status_id}")
+                update_data["status_id"] = status_id
+
+            if update_data["custom_fields_values"] or status_id is not None:
                 self._make_request("PATCH", f"/api/v4/leads/{lead_id}", data=update_data)
                 logger.info(f"Lead {lead_id} fields updated")
             else:
