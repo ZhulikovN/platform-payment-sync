@@ -213,6 +213,7 @@ class PaymentProcessor:
             Данные сделки (dict) или ID сделки (int), или None если не найдена
         """
         user = payment.course_order.user
+        telegram_id = str(user.telegram_id) if user.telegram_id else None
         phone = user.phone or None
         email = user.email or None
 
@@ -220,7 +221,10 @@ class PaymentProcessor:
 
         # Поиск активной сделки (во всех воронках)
         lead = self.client.find_active_lead(
-            contact_id=contact_id, phone=phone, email=email
+            contact_id=contact_id,
+            telegram_id=telegram_id,
+            phone=phone,
+            email=email
         )
 
         if lead:
