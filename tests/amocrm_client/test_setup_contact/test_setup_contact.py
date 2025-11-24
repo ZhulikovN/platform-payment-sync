@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.integration
-def test_create_test_contact() -> None:
+@pytest.mark.asyncio
+async def test_create_test_contact() -> None:
     """Создать тестовый контакт."""
     logger.info("=" * 80)
     logger.info("ТЕСТ: Создание тестового контакта")
@@ -39,7 +40,7 @@ def test_create_test_contact() -> None:
     logger.info(f"  Telegram Username: {test_tg_username}")
 
     try:
-        contact_id = client.create_contact(
+        contact_id = await client.create_contact(
             name=test_name,
             phone=test_phone,
             email=test_email,
@@ -58,7 +59,7 @@ def test_create_test_contact() -> None:
         logger.info(f"  • Email: {test_email}")
         logger.info(f"  • Telegram ID: {test_tg_id}")
         logger.info(f"  • Telegram Username: {test_tg_username}")
-        logger.info("\n⚠️  СКОПИРУЙТЕ ЭТИ ДАННЫЕ В tests/test_config.py:")
+        logger.info("\nСКОПИРУЙТЕ ЭТИ ДАННЫЕ В tests/test_config.py:")
         logger.info(f'TEST_CONTACT_ID = {contact_id}')
         logger.info(f'TEST_CONTACT_PHONE = "{test_phone}"')
         logger.info(f'TEST_CONTACT_EMAIL = "{test_email}"')
@@ -68,6 +69,6 @@ def test_create_test_contact() -> None:
         logger.info("=" * 80)
 
     except Exception as e:
-        logger.error(f"\n❌ Ошибка: {e}", exc_info=True)
+        logger.error(f"\nОшибка: {e}", exc_info=True)
         raise
 

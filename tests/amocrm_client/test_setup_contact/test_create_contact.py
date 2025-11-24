@@ -1,5 +1,5 @@
 """Интеграционный тест для создания контакта и сделки в тестовой воронке AmoCRM."""
-#  poetry run pytest tests/test_setup_contact/test_create_contact.py -v -s --log-cli-level=INFO
+#  poetry run pytest tests/amocrm_client/test_setup_contact/test_create_contact.py -v -s --log-cli-level=INFO
 import logging
 import random
 
@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.integration
-def test_create_contact_and_lead_in_test_pipeline() -> None:
+@pytest.mark.asyncio
+async def test_create_contact_and_lead_in_test_pipeline() -> None:
     """
     Тест создания контакта и сделки в тестовой воронке AMO_PIPELINE_ID=10195498.
     
@@ -48,7 +49,7 @@ def test_create_contact_and_lead_in_test_pipeline() -> None:
     logger.info(f"  Telegram Username: {test_tg_username}")
 
     try:
-        contact_id = client.create_contact(
+        contact_id = await client.create_contact(
             name=test_name,
             phone=test_phone,
             email=test_email,
@@ -70,11 +71,14 @@ def test_create_contact_and_lead_in_test_pipeline() -> None:
         logger.info(f"\nШаг 3: Создание сделки в тестовой воронке")
         logger.info(f"   Pipeline ID: {settings.AMO_PIPELINE_ID}")
         logger.info(f"   Status ID: {settings.AMO_DEFAULT_STATUS_ID}")
-        
-        lead_id = client.create_lead(
+
+
+        lead_id = await client.create_lead(
             name=f"Тестовая сделка для {test_name}",
             contact_id=contact_id,
-            price=0
+            price=0,
+            utm_source="amo_crm",
+
         )
 
         logger.info(f"\nСделка успешно создана!")
@@ -88,7 +92,7 @@ def test_create_contact_and_lead_in_test_pipeline() -> None:
         test_price = 15000
         logger.info(f"   Бюджет: {test_price} руб")
         
-        client.update_lead(
+        await client.update_lead(
             lead_id=lead_id,
             price=test_price
         )
@@ -98,7 +102,7 @@ def test_create_contact_and_lead_in_test_pipeline() -> None:
         logger.info(f"   Направление курса: ЕГЭ (enum_id=1373609)")
         logger.info(f"   Предметы: Русский язык (1360286), Математика (1360288)")
         
-        client.update_lead_fields(
+        await client.update_lead_fields(
             lead_id=lead_id,
             subjects=[1360286, 1360288],
             direction=1373609
@@ -113,11 +117,11 @@ Email: {test_email}
 TGID: {test_tg_id} | TG Username: {test_tg_username}
 Источник: integration_test"""
         
-        client.add_lead_note(lead_id, note_text)
+        await client.add_lead_note(lead_id, note_text)
         logger.info(f"Примечание добавлено")
 
         logger.info(f"\nШаг 7: Проверка воронки и полей сделки")
-        lead_response = client._make_request("GET", f"/api/v4/leads/{lead_id}")
+        lead_response = await client._make_request("GET", f"/api/v4/leads/{lead_id}")
         
         actual_pipeline_id = lead_response.get("pipeline_id")
         actual_price = lead_response.get("price")
