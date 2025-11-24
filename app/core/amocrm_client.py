@@ -228,7 +228,7 @@ class AmoCRMClient:
 
         # Приоритет 1: поиск по tg_id
         if tg_id:
-            contact = self.find_contact_by_custom_field(settings.AMO_CONTACT_FIELD_TG_ID, tg_id)
+            contact = self.find_contact_by_custom_field(tg_id)
             if contact:
                 return contact
 
@@ -250,30 +250,51 @@ class AmoCRMClient:
     def find_active_lead(
         self,
         contact_id: int,
+        telegram_id: str | None = None,
         phone: str | None = None,
         email: str | None = None,
     ) -> dict[str, Any] | None:
         """
         Найти активную сделку для контакта.
 
-        Сначала пытается найти через filter[query] по телефону или email,
+        Сначала пытается найти через filter[query] по telegram_id, телефону или email,
         затем фильтрует по contact_id для проверки совпадения.
 
         Args:
             contact_id: ID контакта
-            phone: Телефон для поиска
-            email: Email для поиска
+            telegram_id: Telegram ID для поиска (приоритет 1)
+            phone: Телефон для поиска (приоритет 2)
+            email: Email для поиска (приоритет 3)
 
         Returns:
             Данные сделки или None если не найдена
         """
         logger.info(
-            f"Searching active lead for contact {contact_id}, phone={phone}, email={email}"
+            f"Searching active lead for contact {contact_id}, telegram_id={telegram_id}, phone={phone}, email={email}"
         )
 
         try:
             leads = []
 
+            # Приоритет 1: поиск по telegram_id
+            if telegram_id:
+                logger.info(f"Searching leads by telegram_id: {telegram_id}")
+                try:
+                    response = self._make_request(
+                        "GET",
+                        "/api/v4/leads",
+                        data={
+                            "filter[query]": telegram_id,
+                            "limit": 50,
+                        },
+                    )
+                    telegram_leads = response.get("_embedded", {}).get("leads", [])
+                    logger.info(f"Found {len(telegram_leads)} leads by telegram_id")
+                    leads.extend(telegram_leads)
+                except Exception as e:
+                    logger.warning(f"Error searching leads by telegram_id: {e}")
+
+            # Приоритет 2: поиск по phone
             if phone:
                 logger.info(f"Searching leads by phone: {phone}")
                 try:
@@ -291,6 +312,7 @@ class AmoCRMClient:
                 except Exception as e:
                     logger.warning(f"Error searching leads by phone: {e}")
 
+            # Приоритет 3: поиск по email
             if email:
                 logger.info(f"Searching leads by email: {email}")
                 try:
@@ -309,7 +331,7 @@ class AmoCRMClient:
                     logger.warning(f"Error searching leads by email: {e}")
 
             if not leads:
-                logger.info("No leads found by phone or email")
+                logger.info("No leads found by telegram_id, phone or email")
                 return None
 
             unique_leads = {lead["id"]: lead for lead in leads}.values()
