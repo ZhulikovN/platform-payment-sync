@@ -90,7 +90,7 @@ class PaymentProcessor:
             settings.AMO_STATUS_AUTOPAY_SITE,
         )
 
-    def process_payment(self, payment: PaymentWebhook) -> ProcessResult:
+    async def process_payment(self, payment: PaymentWebhook) -> ProcessResult:
         """
         Обработать оплату с платформы.
 
@@ -131,7 +131,7 @@ class PaymentProcessor:
             #     )
 
             # Шаг 2: Матчинг контакта
-            contact = self._find_or_create_contact(payment)
+            contact = await self._find_or_create_contact(payment)
             if contact is None:
                 logger.error("Contact not found and CREATE_IF_NOT_FOUND=False")
                 return ProcessResult(
@@ -143,10 +143,10 @@ class PaymentProcessor:
             logger.info(f"✓ Contact resolved: ID={contact_id}")
 
             # Шаг 3: Обновление полей контакта (идемпотентно)
-            self._update_contact_fields(contact_id, payment)
+            await self._update_contact_fields(contact_id, payment)
 
             # Шаг 4: Матчинг активной сделки
-            lead = self._find_or_create_lead(contact_id, payment, pipeline_id, status_id)
+            lead = await self._find_or_create_lead(contact_id, payment, pipeline_id, status_id)
             if lead is None:
                 logger.error("Lead not found and CREATE_IF_NOT_FOUND=False")
                 return ProcessResult(
@@ -159,10 +159,10 @@ class PaymentProcessor:
             logger.info(f"✓ Lead resolved: ID={lead_id}")
 
             # Шаг 5: Обновление полей сделки
-            self._update_lead_fields(lead_id, payment, status_id)
+            await self._update_lead_fields(lead_id, payment, status_id)
 
             # Шаг 6: Создание примечания
-            self._add_payment_note(lead_id, payment)
+            await self._add_payment_note(lead_id, payment)
 
             logger.info(f"✓ Payment {payment_id} processed successfully")
             logger.info("=" * 80)
@@ -182,7 +182,7 @@ class PaymentProcessor:
                 error=str(e),
             )
 
-    def _find_or_create_contact(self, payment: PaymentWebhook) -> dict | int | None:
+    async def _find_or_create_contact(self, payment: PaymentWebhook) -> dict | int | None:
         """
         Найти или создать контакт.
 
@@ -205,7 +205,7 @@ class PaymentProcessor:
         logger.info(f"Поиск контакта: tg_id={tg_id}, phone={phone}, email={email}")
 
         # Поиск контакта по приоритетам
-        contact = self.client.find_contact(tg_id=tg_id, phone=phone, email=email)
+        contact = await self.client.find_contact(tg_id=tg_id, phone=phone, email=email)
 
         if contact:
             logger.info(f"✓ Контакт найден: ID={contact['id']}")
@@ -223,7 +223,7 @@ class PaymentProcessor:
         name = f"{user.first_name} {user.last_name}".strip() or "Клиент без имени"
         tg_username = user.telegram_tag or None
 
-        contact_id = self.client.create_contact(
+        contact_id = await self.client.create_contact(
             name=name,
             phone=phone,
             email=email,
@@ -234,7 +234,7 @@ class PaymentProcessor:
         logger.info(f"✓ Контакт создан: ID={contact_id}")
         return contact_id
 
-    def _update_contact_fields(self, contact_id: int, payment: PaymentWebhook) -> None:
+    async def _update_contact_fields(self, contact_id: int, payment: PaymentWebhook) -> None:
         """
         Обновить поля контакта (идемпотентно - только пустые поля).
 
@@ -251,13 +251,13 @@ class PaymentProcessor:
             return
 
         logger.info(f"Обновление полей контакта {contact_id}...")
-        self.client.update_contact_fields(
+        await self.client.update_contact_fields(
             contact_id=contact_id,
             tg_id=tg_id,
             tg_username=tg_username,
         )
 
-    def _find_or_create_lead(
+    async def _find_or_create_lead(
         self,
         contact_id: int,
         payment: PaymentWebhook,
@@ -285,7 +285,7 @@ class PaymentProcessor:
 
         logger.info(f"Поиск активной сделки для контакта {contact_id}...")
 
-        lead = self.client.find_active_lead(
+        lead = await self.client.find_active_lead(
             contact_id=contact_id,
             telegram_id=telegram_id,
             phone=phone,
@@ -332,7 +332,7 @@ class PaymentProcessor:
         utm_term = utm.term or None
         ym_uid = utm.ym or None
 
-        lead_id = self.client.create_lead(
+        lead_id = await self.client.create_lead(
             name=lead_name,
             contact_id=contact_id,
             price=price,
@@ -349,7 +349,7 @@ class PaymentProcessor:
         logger.info(f"✓ Сделка создана: ID={lead_id}")
         return lead_id
 
-    def _update_lead_fields(self, lead_id: int, payment: PaymentWebhook, status_id: int) -> None:
+    async def _update_lead_fields(self, lead_id: int, payment: PaymentWebhook, status_id: int) -> None:
         """
         Обновить кастомные поля сделки.
 
@@ -408,7 +408,7 @@ class PaymentProcessor:
         payment_id = payment.course_order.payment_id
 
         # Обновить поля (включая перевод в целевой этап согласно UTM)
-        self.client.update_lead_fields(
+        await self.client.update_lead_fields(
             lead_id=lead_id,
             subjects=subjects_enum_ids if subjects_enum_ids else None,
             direction=direction_enum_id,
@@ -423,7 +423,7 @@ class PaymentProcessor:
 
         logger.info(f"✓ Поля сделки {lead_id} обновлены, переведена в этап {status_id}")
 
-    def _add_payment_note(self, lead_id: int, payment: PaymentWebhook) -> None:
+    async def _add_payment_note(self, lead_id: int, payment: PaymentWebhook) -> None:
         """
         Создать примечание в сделке с деталями оплаты.
 
@@ -519,7 +519,7 @@ class PaymentProcessor:
         note_text = "\n".join(note_parts)
 
         # Добавить примечание
-        self.client.add_lead_note(lead_id, note_text)
+        await self.client.add_lead_note(lead_id, note_text)
 
         logger.info(f"✓ Примечание добавлено в сделку {lead_id}")
 
