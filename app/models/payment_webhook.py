@@ -61,7 +61,6 @@ class CourseOrder(BaseModel):
     utm: PaymentUTM = Field(..., description="UTM метки")
     domain: str = Field(..., description="Домен платформы")
     payment_id: str | None = Field(None, description="Уникальный ID оплаты (для защиты от дубликатов)")
-    invoice_id: str | None = Field(None, description="ID счета/инвойса")
     payment_method: str | None = Field(None, description="Метод оплаты (SBP, карта и т.д.)")
     currency: str = Field(default="RUB", description="Валюта оплаты")
 

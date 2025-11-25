@@ -360,7 +360,6 @@ class PaymentProcessor:
         - Общий оплаченный итог (инкрементально)
         - Статус оплаты
         - Дата/время последней оплаты
-        - Invoice ID
         - Payment ID
         - Этап сделки (согласно UTM)
 
@@ -403,8 +402,7 @@ class PaymentProcessor:
         # Дата/время оплаты (ISO 8601)
         payment_date = payment.course_order.updated_at
 
-        # Invoice ID и Payment ID
-        invoice_id = payment.course_order.invoice_id
+        # Payment ID
         payment_id = payment.course_order.payment_id
 
         # Обновить поля (включая перевод в целевой этап согласно UTM)
@@ -416,7 +414,6 @@ class PaymentProcessor:
             # total_paid_increment=amount,  # Инкрементально добавить к общему итогу
             # payment_status=payment_status,
             # last_payment_date=payment_date,
-            # invoice_id=invoice_id,
             # payment_id=payment_id,
             status_id=status_id,  # Перевести в целевой этап
         )
@@ -439,7 +436,6 @@ class PaymentProcessor:
         Промокод: {promo_code}
         TGID: {tg_id} | TG Username: @{tg_username} | Телефон: {phone}
         Источник: {source}
-        Invoice ID: {invoice_id}
         Payment ID: {payment_id}
         ```
 
@@ -509,9 +505,6 @@ class PaymentProcessor:
 
         if utm.source:
             note_parts.append(f"Источник: {utm.source}")
-
-        if order.invoice_id:
-            note_parts.append(f"Invoice ID: {order.invoice_id}")
 
         if order.payment_id:
             note_parts.append(f"Payment ID: {order.payment_id}")

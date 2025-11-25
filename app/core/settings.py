@@ -71,7 +71,6 @@ class Settings(BaseSettings):
     AMO_LEAD_FIELD_TOTAL_PAID: int | None = Field(None, description="ID поля 'Общий оплаченный итог' в сделке")
     AMO_LEAD_FIELD_PAYMENT_STATUS: int | None = Field(None, description="ID поля 'Статус оплаты' в сделке")
     AMO_LEAD_FIELD_LAST_PAYMENT_DATE: int | None = Field(None, description="ID поля 'Дата/время последней оплаты' в сделке")
-    AMO_LEAD_FIELD_INVOICE_ID: int | None = Field(None, description="ID поля 'Invoice ID' в сделке")
     AMO_LEAD_FIELD_PAYMENT_ID: int | None = Field(None, description="ID поля 'Payment ID' в сделке")
 
     # Воронки для автоплаты (определяются по UTM)

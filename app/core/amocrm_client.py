@@ -661,7 +661,6 @@ class AmoCRMClient:
         total_paid_increment: int | None = None,
         payment_status: str | None = None,
         last_payment_date: str | None = None,
-        invoice_id: str | None = None,
         payment_id: str | None = None,
         status_id: int | None = None,
     ) -> None:
@@ -676,7 +675,6 @@ class AmoCRMClient:
             total_paid_increment: Сумма для добавления к общему итогу
             payment_status: Статус оплаты
             last_payment_date: Дата последней оплаты
-            invoice_id: Invoice ID
             payment_id: Payment ID
             status_id: ID этапа для перевода сделки
         """
@@ -743,12 +741,6 @@ class AmoCRMClient:
                 logger.info(f"Updating last payment date: {last_payment_date}")
                 update_data["custom_fields_values"].append(
                     {"field_id": settings.AMO_LEAD_FIELD_LAST_PAYMENT_DATE, "values": [{"value": last_payment_date}]}
-                )
-
-            if invoice_id and settings.AMO_LEAD_FIELD_INVOICE_ID:
-                logger.info(f"Updating invoice ID: {invoice_id}")
-                update_data["custom_fields_values"].append(
-                    {"field_id": settings.AMO_LEAD_FIELD_INVOICE_ID, "values": [{"value": invoice_id}]}
                 )
 
             if payment_id and settings.AMO_LEAD_FIELD_PAYMENT_ID:

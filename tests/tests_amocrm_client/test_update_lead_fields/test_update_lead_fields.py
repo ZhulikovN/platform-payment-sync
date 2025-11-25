@@ -209,7 +209,6 @@ async def test_update_all_lead_fields() -> None:
             # total_paid_increment=5000, # Поля пока нет
             # payment_status="CONFIRMED", # Поля пока нет
             # last_payment_date="2025-11-21 03:00:00", # Поля пока нет
-            # invoice_id="TEST-INV-12345", # Поля пока нет
             # payment_id="TEST-PAY-67890" # Поля пока нет
         )
         logger.info(f"Инкрементальное обновление выполнено")
@@ -222,7 +221,6 @@ async def test_update_all_lead_fields() -> None:
 Сумма оплаты: 5000 руб
 Статус: CONFIRMED
 Дата: 2025-11-21 03:00:00
-Invoice ID: TEST-INV-12345
 Payment ID: TEST-PAY-67890
 Источник: integration_test"""
         
@@ -273,8 +271,6 @@ Payment ID: TEST-PAY-67890
             elif settings.AMO_LEAD_FIELD_PAYMENT_STATUS and field_id == settings.AMO_LEAD_FIELD_PAYMENT_STATUS:
                 logger.info(f"  {field_name}: {values[0].get('value') if values else 'N/A'}")
             elif settings.AMO_LEAD_FIELD_LAST_PAYMENT_DATE and field_id == settings.AMO_LEAD_FIELD_LAST_PAYMENT_DATE:
-                logger.info(f"  {field_name}: {values[0].get('value') if values else 'N/A'}")
-            elif settings.AMO_LEAD_FIELD_INVOICE_ID and field_id == settings.AMO_LEAD_FIELD_INVOICE_ID:
                 logger.info(f"  {field_name}: {values[0].get('value') if values else 'N/A'}")
             elif settings.AMO_LEAD_FIELD_PAYMENT_ID and field_id == settings.AMO_LEAD_FIELD_PAYMENT_ID:
                 logger.info(f"  {field_name}: {values[0].get('value') if values else 'N/A'}")
