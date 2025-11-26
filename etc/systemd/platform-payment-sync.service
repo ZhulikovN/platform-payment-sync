@@ -1,0 +1,13 @@
+[Unit]
+Description=Platform Payment Sync - FastAPI webhook service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/platform-payment-sync/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+WorkingDirectory=/opt/platform-payment-sync
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
