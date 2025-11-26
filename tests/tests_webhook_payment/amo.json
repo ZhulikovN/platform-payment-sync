@@ -1,0 +1,66 @@
+{
+    "course_order": {
+        "status": "CONFIRMED",
+        "amount": 11781,
+        "created_at": "2025-10-09 14:37:23",
+        "updated_at": "2025-11-12 08:20:02",
+        "code": "",
+        "payment_id": "7166790691",
+        "payment_method": "card",
+        "course_order_items": [
+            {
+                "cost": 3927,
+                "number_lessons": 10,
+                "course": {
+                    "name": "\u0413\u043e\u0434\u043e\u0432\u043e\u0439 2\u043a26 \u0421\u0442\u0430\u043d\u0434\u0430\u0440\u0442",
+                    "subject": {
+                        "name": "\u041e\u0431\u0449\u0435\u0441\u0442\u0432\u043e\u0437\u043d\u0430\u043d\u0438\u0435",
+                        "project": "\u0415\u0413\u042d"
+                    }
+                },
+                "package_id": 322
+            },
+            {
+                "cost": 3333,
+                "number_lessons": 10,
+                "course": {
+                    "name": "\u0413\u043e\u0434\u043e\u0432\u043e\u0439 2\u043a26 \u0421\u0442\u0430\u043d\u0434\u0430\u0440\u0442",
+                    "subject": {
+                        "name": "\u0410\u043d\u0433\u043b\u0438\u0439\u0441\u043a\u0438\u0439 \u044f\u0437\u044b\u043a",
+                        "project": "\u0415\u0413\u042d"
+                    }
+                },
+                "package_id": 325
+            },
+            {
+                "cost": 3927,
+                "number_lessons": 9,
+                "course": {
+                    "name": "\u0413\u043e\u0434\u043e\u0432\u043e\u0439 2\u043a26 \u0421\u0442\u0430\u043d\u0434\u0430\u0440\u0442",
+                    "subject": {
+                        "name": "\u0420\u0443\u0441\u0441\u043a\u0438\u0439",
+                        "project": "\u0415\u0413\u042d"
+                    }
+                },
+                "package_id": 331
+            }
+        ],
+        "user": {
+            "last_name": "\u041a\u0430\u0437\u0430\u043a\u043e\u0432\u0430",
+            "first_name": "\u0410\u043b\u0435\u043a\u0441\u0430\u043d\u0434\u0440\u0430",
+            "phone": "+7 (964) 080-10-82",
+            "email": "alex.kazakova2810@mail.ru",
+            "telegram_tag": "alexkazakova",
+            "telegram_id": "1208542295"
+        },
+        "utm": {
+            "source": "advcake",
+            "term": "",
+            "compaign": "",
+            "medium": "",
+            "content": "",
+            "ym": ""
+        },
+        "domain": "pl.el-ed.ru"
+    }
+}
