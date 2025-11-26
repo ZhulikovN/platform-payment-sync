@@ -226,16 +226,13 @@ def test_process_real_webhook_logic() -> None:
         assert total == 11781
 
         processor = PaymentProcessor()
-        utm_dict = {
-            "source": webhook.course_order.utm.source,
-            "medium": webhook.course_order.utm.medium,
-        }
+        utm = webhook.course_order.utm
 
-        pipeline_id, status_id = processor.determine_pipeline_and_status(utm_dict)
+        pipeline_id, status_id = processor.determine_pipeline_and_status(utm)
 
         logger.info(f"\n5. Определение воронки:")
-        logger.info(f"   UTM source: '{utm_dict['source']}' (пусто)")
-        logger.info(f"   UTM medium: '{utm_dict['medium']}' (пусто)")
+        logger.info(f"   UTM source: '{utm.source}' (пусто)")
+        logger.info(f"   UTM medium: '{utm.medium}' (пусто)")
         logger.info(f"   → Pipeline ID: {pipeline_id}")
         logger.info(f"   → Status ID: {status_id}")
 
@@ -273,16 +270,13 @@ def test_webhook_with_empty_utm() -> None:
         webhook = PaymentWebhook(**REAL_WEBHOOK_DATA)
         processor = PaymentProcessor()
 
-        utm_dict = {
-            "source": webhook.course_order.utm.source,
-            "medium": webhook.course_order.utm.medium,
-        }
+        utm = webhook.course_order.utm
 
-        pipeline_id, status_id = processor.determine_pipeline_and_status(utm_dict)
+        pipeline_id, status_id = processor.determine_pipeline_and_status(utm)
 
         logger.info(f"\nUTM метки пустые:")
-        logger.info(f"  Source: '{utm_dict['source']}'")
-        logger.info(f"  Medium: '{utm_dict['medium']}'")
+        logger.info(f"  Source: '{utm.source}'")
+        logger.info(f"  Medium: '{utm.medium}'")
 
         logger.info(f"\nОпределенная воронка:")
         logger.info(f"  Pipeline ID: {pipeline_id}")
