@@ -1,5 +1,5 @@
 """Интеграционный тест для обновления telegram полей в контакте."""
-# pytest tests/test_update_contact_fields/test_update_contact_fields.py -v -s --log-cli-level=INFO
+# pytest tests/tests_amocrm_client/test_update_contact_fields/test_update_contact_fields.py -v -s --log-cli-level=INFO
 
 import logging
 
@@ -33,7 +33,7 @@ async def test_update_contact_fields() -> None:
 
     client = AmoCRMClient()
     
-    test_contact_id = 59602535
+    test_contact_id = 59622885
     
     logger.info(f"\nИспользуем существующий контакт: ID={test_contact_id}")
     
@@ -78,7 +78,8 @@ async def test_update_contact_fields() -> None:
         
         new_tg_id = "777888999000"
         new_tg_username = "test_update_user"
-        
+        email = "balduin@internet.ru"
+
         logger.info(f"\nНовые значения для обновления:")
         logger.info(f"  Telegram ID: {new_tg_id}")
         logger.info(f"  Telegram Username: {new_tg_username}")
@@ -87,6 +88,7 @@ async def test_update_contact_fields() -> None:
             contact_id=test_contact_id,
             tg_id=new_tg_id,
             tg_username=new_tg_username,
+            email=email
         )
         
         logger.info(f"\nМетод update_contact_fields вызван")

@@ -3,11 +3,17 @@ Description=Platform Payment Sync - FastAPI webhook service
 After=network.target
 
 [Service]
-Type=simple
-ExecStart=/opt/platform-payment-sync/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
-WorkingDirectory=/opt/platform-payment-sync
+User=ubuntu
+Group=ubuntu
+
+WorkingDirectory=/home/ubuntu/platform-payment/current
+
+EnvironmentFile=/home/ubuntu/platform-payment/current/.env
+
+ExecStart=/home/ubuntu/.cache/pypoetry/virtualenvs/platform-payment-sync-7BcRJz-z-py3.12/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+
 Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-

@@ -459,7 +459,13 @@ class AmoCRMClient:
             logger.error(f"Error creating contact: {e}")
             raise
 
-    async def update_contact_fields(self, contact_id: int, tg_id: str | None = None, tg_username: str | None = None) -> None:
+    async def update_contact_fields(
+        self,
+        contact_id: int,
+        tg_id: str | None = None,
+        tg_username: str | None = None,
+        email: str | None = None,
+    ) -> None:
         """
         Обновить кастомные поля контакта (идемпотентно - только пустые поля).
 
@@ -467,6 +473,7 @@ class AmoCRMClient:
             contact_id: ID контакта
             tg_id: Telegram ID (обновить только если пусто)
             tg_username: Telegram username (обновить только если пусто)
+            email: Email (обновить только если пусто)
         """
         logger.info(f"Updating contact {contact_id} fields")
 
@@ -476,12 +483,15 @@ class AmoCRMClient:
 
             current_tg_id = None
             current_tg_username = None
+            current_email = None
 
             for field in current_fields:
                 if field["field_id"] == settings.AMO_CONTACT_FIELD_TG_ID:
                     current_tg_id = field["values"][0]["value"] if field["values"] else None
                 elif field["field_id"] == settings.AMO_CONTACT_FIELD_TG_USERNAME:
                     current_tg_username = field["values"][0]["value"] if field["values"] else None
+                elif field.get("field_code") == "EMAIL":
+                    current_email = field["values"][0]["value"] if field["values"] else None
 
             update_data: dict[str, Any] = {"custom_fields_values": []}
 
@@ -495,6 +505,12 @@ class AmoCRMClient:
                 logger.info(f"Updating tg_username: {tg_username}")
                 update_data["custom_fields_values"].append(
                     {"field_id": settings.AMO_CONTACT_FIELD_TG_USERNAME, "values": [{"value": tg_username}]}
+                )
+
+            if email and not current_email:
+                logger.info(f"Updating email: {email}")
+                update_data["custom_fields_values"].append(
+                    {"field_code": "EMAIL", "values": [{"value": email, "enum_code": "WORK"}]}
                 )
 
             if update_data["custom_fields_values"]:

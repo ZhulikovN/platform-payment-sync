@@ -271,9 +271,10 @@ class PaymentProcessor:
         user = payment.course_order.user
         tg_id = user.telegram_id or None
         tg_username = user.telegram_tag or None
+        email = user.email or None
 
-        if not tg_id and not tg_username:
-            logger.info("Нет данных Telegram для обновления контакта")
+        if not tg_id and not tg_username and not email:
+            logger.info("Нет данных для обновления контакта")
             return
 
         logger.info(f"Обновление полей контакта {contact_id}...")
@@ -281,6 +282,7 @@ class PaymentProcessor:
             contact_id=contact_id,
             tg_id=tg_id,
             tg_username=tg_username,
+            email=email,
         )
 
     async def _find_or_create_lead(
