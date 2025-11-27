@@ -21,11 +21,6 @@ logger = logging.getLogger(__name__)
 async def test_create_contact_and_lead_in_test_pipeline() -> None:
     """
     Тест создания контакта и сделки в тестовой воронке AMO_PIPELINE_ID=10195498.
-    
-    Проверяет правильную логику:
-    1. Создать контакт
-    2. НЕ вызывать find_active_lead() (контакт новый, сделок нет)
-    3. Сразу создать сделку в тестовой воронке
     """
     logger.info("=" * 80)
     logger.info("ТЕСТ: Создание контакта и сделки в тестовой воронке")
@@ -63,10 +58,6 @@ async def test_create_contact_and_lead_in_test_pipeline() -> None:
         assert contact_id is not None, "ID контакта не должен быть None"
         assert isinstance(contact_id, int), "ID контакта должен быть целым числом"
         assert contact_id > 0, "ID контакта должен быть положительным числом"
-
-        logger.info(f"\nШаг 2: Пропускаем find_active_lead()")
-        logger.info(f"Правильная логика: контакт только что создан, сделок у него нет")
-        logger.info(f"Вызов find_active_lead() был бы бесполезным API запросом")
 
         logger.info(f"\nШаг 3: Создание сделки в тестовой воронке")
         logger.info(f"   Pipeline ID: {settings.AMO_PIPELINE_ID}")
@@ -146,7 +137,6 @@ TGID: {test_tg_id} | TG Username: {test_tg_username}
         logger.info(f"  • Направление: ЕГЭ")
         logger.info(f"  • Предметы: Русский язык, Математика")
         logger.info(f"  • Примечание: добавлено")
-        logger.info(f"  • Оптимизация: пропущен бесполезный вызов find_active_lead()")
         logger.info("=" * 80)
 
     except Exception as e:
