@@ -2,6 +2,40 @@
 
 from app.core.settings import settings
 
+
+def normalize_phone(phone: str) -> str:
+    """
+    Нормализация телефона к единому формату (только цифры, начинается с 7).
+
+    Примеры:
+        +7 (987) 672-60-10 → 79876726010
+        +79876726010       → 79876726010
+        8 (987) 672-60-10  → 79876726010
+        9876726010         → 79876726010
+
+    Args:
+        phone: Телефон в любом формате
+
+    Returns:
+        Нормализованный телефон (только цифры, начинается с 7)
+    """
+    if not phone:
+        return phone
+
+    digits = "".join(filter(str.isdigit, phone))
+
+    if not digits:
+        return phone
+
+    if digits.startswith("8") and len(digits) == 11:
+        digits = "7" + digits[1:]
+
+    if not digits.startswith("7") and len(digits) == 10:
+        digits = "7" + digits
+
+    return digits
+
+
 EXCLUDED_STATUSES = [
     settings.AMO_STATUS_AUTOPAY_SITE,
     settings.AMO_STATUS_AUTOPAY_YANDEX,
@@ -11,9 +45,9 @@ EXCLUDED_STATUSES = [
 ]
 
 ALLOWED_PIPELINES = [
-    settings.AMO_PIPELINE_SITE,       # Сайт
-    settings.AMO_PIPELINE_PARTNERS,   # Партнеры
-    settings.AMO_PIPELINE_YANDEX,     # Яндекс
+    settings.AMO_PIPELINE_SITE,  # Сайт
+    settings.AMO_PIPELINE_PARTNERS,  # Партнеры
+    settings.AMO_PIPELINE_YANDEX,  # Яндекс
 ]
 
 SUBJECTS_MAPPING: dict[str, int] = {

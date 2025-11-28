@@ -30,7 +30,7 @@ async def test_create_contact_and_lead_in_test_pipeline() -> None:
     client = AmoCRMClient()
     
     test_suffix = random.randint(100000, 999999)
-    test_phone = f"+7999{test_suffix}"
+    test_phone = f"79999{test_suffix}"
     test_email = f"test_{test_suffix}@example.com"
     test_tg_id = f"999{test_suffix}"
     test_tg_username = f"@test_user_{test_suffix}"

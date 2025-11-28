@@ -12,7 +12,11 @@ from tenacity import (
     wait_exponential,
 )
 
-from app.core.amocrm_mappings import ALLOWED_PIPELINES, EXCLUDED_STATUSES
+from app.core.amocrm_mappings import (
+    ALLOWED_PIPELINES,
+    EXCLUDED_STATUSES,
+    normalize_phone,
+)
 from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -167,13 +171,14 @@ class AmoCRMClient:
         Returns:
             Данные контакта или None если не найден
         """
-        logger.info(f"Searching contact by phone: {phone}")
+        normalized_phone = normalize_phone(phone)
+        logger.info(f"Searching contact by phone: {phone} (normalized: {normalized_phone})")
 
         try:
             response = await self._make_request(
                 "GET",
                 "/api/v4/contacts",
-                data={"query": phone},
+                data={"query": normalized_phone},
             )
 
             contacts = response.get("_embedded", {}).get("contacts", [])
@@ -306,13 +311,14 @@ class AmoCRMClient:
                     logger.warning(f"Error searching leads by telegram_id: {e}")
 
             if phone:
-                logger.info(f"Searching leads by phone: {phone}")
+                normalized_phone = normalize_phone(phone)
+                logger.info(f"Searching leads by phone: {phone} (normalized: {normalized_phone})")
                 try:
                     response = await self._make_request(
                         "GET",
                         "/api/v4/leads",
                         data={
-                            "filter[query]": phone,
+                            "filter[query]": normalized_phone,
                             "limit": 50,
                         },
                     )
@@ -384,15 +390,10 @@ class AmoCRMClient:
                 and lead.get("updated_at", 0) > 0
             ]
 
-            filtered_out = [
-                lead for lead in verified_leads
-                if lead.get("pipeline_id") not in ALLOWED_PIPELINES
-            ]
+            filtered_out = [lead for lead in verified_leads if lead.get("pipeline_id") not in ALLOWED_PIPELINES]
             if filtered_out:
                 filtered_pipelines = {lead.get("pipeline_id") for lead in filtered_out}
-                logger.info(
-                    f"Filtered out {len(filtered_out)} leads from non-target pipelines: {filtered_pipelines}"
-                )
+                logger.info(f"Filtered out {len(filtered_out)} leads from non-target pipelines: {filtered_pipelines}")
 
             logger.info(f"Active leads after pipeline and status filtering: {len(active_leads)}")
 
@@ -443,8 +444,10 @@ class AmoCRMClient:
         }
 
         if phone:
+            normalized_phone = normalize_phone(phone)
+            logger.info(f"Normalizing phone: {phone} → {normalized_phone}")
             contact_data["custom_fields_values"].append(
-                {"field_code": "PHONE", "values": [{"value": phone, "enum_code": "WORK"}]}
+                {"field_code": "PHONE", "values": [{"value": normalized_phone, "enum_code": "WORK"}]}
             )
 
         if email:

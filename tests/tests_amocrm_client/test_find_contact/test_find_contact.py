@@ -62,7 +62,7 @@ async def test_find_contact_by_phone() -> None:
     client = AmoCRMClient()
 
     try:
-        contact = await client.find_contact_by_phone(NONEXISTENT_PHONE)
+        contact = await client.find_contact_by_phone("7 (931) 537-17-33")
 
         logger.info(f"\nРезультат поиска:")
         if contact:
@@ -233,7 +233,7 @@ async def test_find_active_lead() -> None:
     client = AmoCRMClient()
 
     try:
-        lead = await client.find_active_lead(59593049, phone="+7 (952) 650-3059")
+        lead = await client.find_active_lead(59634657, phone="79876726010")
 
         logger.info(f"\nРезультат поиска:")
         if lead:
