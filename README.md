@@ -2,6 +2,8 @@
 
 Сервис автоматической фиксации оплат с платформы pl.el-ed.ru в amoCRM.
 
+Документация: https://wiki.pushka228.ru/doc/platforma-platezh-sinhronizaciya-8Vr7cYH0ul
+
 ## Описание
 
 Проект предназначен для автоматической синхронизации данных об успешных оплатах курсов с платформы pl.el-ed.ru в систему
@@ -567,4 +569,3 @@ SELECT payment_id, error_message, created_at FROM payment_events WHERE status = 
 
 **Автор:** Nikita Zhulikov
 **Email:** zhulikovnikita884@gmail.com
-**GitHub:** https://github.com/ZhulikovN

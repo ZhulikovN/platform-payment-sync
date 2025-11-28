@@ -12,7 +12,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from app.core.amocrm_mappings import EXCLUDED_STATUSES
+from app.core.amocrm_mappings import ALLOWED_PIPELINES, EXCLUDED_STATUSES
 from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -372,15 +372,29 @@ class AmoCRMClient:
 
             logger.info(f"Verified leads: {len(verified_leads)}")
 
+            found_pipelines = {lead.get("pipeline_id") for lead in verified_leads}
+            logger.info(f"Found leads in pipelines: {found_pipelines}")
+
             active_leads = [
                 lead
                 for lead in verified_leads
                 if not lead.get("is_deleted", False)
+                and lead.get("pipeline_id") in ALLOWED_PIPELINES
                 and lead.get("status_id") not in EXCLUDED_STATUSES
                 and lead.get("updated_at", 0) > 0
             ]
 
-            logger.info(f"Active leads after status filtering: {len(active_leads)}")
+            filtered_out = [
+                lead for lead in verified_leads
+                if lead.get("pipeline_id") not in ALLOWED_PIPELINES
+            ]
+            if filtered_out:
+                filtered_pipelines = {lead.get("pipeline_id") for lead in filtered_out}
+                logger.info(
+                    f"Filtered out {len(filtered_out)} leads from non-target pipelines: {filtered_pipelines}"
+                )
+
+            logger.info(f"Active leads after pipeline and status filtering: {len(active_leads)}")
 
             if not active_leads:
                 logger.info("No active leads found after filtering")

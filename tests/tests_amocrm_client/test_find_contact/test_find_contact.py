@@ -1,5 +1,5 @@
 """Интеграционный тест для проверки методов поиска контактов."""
-# poetry run pytest tests/amocrm_client/test_find_contact/test_find_contact.py -v -s --log-cli-level=INFO
+# poetry run pytest tests/tests_amocrm_client/test_find_contact/test_find_contact.py -v -s --log-cli-level=INFO
 
 import logging
 
@@ -233,7 +233,7 @@ async def test_find_active_lead() -> None:
     client = AmoCRMClient()
 
     try:
-        lead = await client.find_active_lead(59602447, phone="+7 (923) 363-1085")
+        lead = await client.find_active_lead(59593049, phone="+7 (952) 650-3059")
 
         logger.info(f"\nРезультат поиска:")
         if lead:
