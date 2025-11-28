@@ -10,6 +10,12 @@ EXCLUDED_STATUSES = [
     settings.STATUS_CLOSED,
 ]
 
+ALLOWED_PIPELINES = [
+    settings.AMO_PIPELINE_SITE,       # Сайт
+    settings.AMO_PIPELINE_PARTNERS,   # Партнеры
+    settings.AMO_PIPELINE_YANDEX,     # Яндекс
+]
+
 SUBJECTS_MAPPING: dict[str, int] = {
     "Обществознание": settings.AMO_SUBJECT_OBSHCHESTVO,
     "Английский язык": settings.AMO_SUBJECT_ENGLISH,

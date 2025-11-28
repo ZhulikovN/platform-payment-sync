@@ -324,8 +324,7 @@ class PaymentProcessor:
         logger.info(f"Создание новой сделки в воронке {pipeline_id} (этап {status_id}) с UTM метками...")
 
         user_name = f"{user.first_name} {user.last_name}".strip() or "Клиент без имени"
-        first_subject = payment.subjects_list[0] if payment.subjects_list else "Курс"
-        lead_name = f"Оплата {first_subject} - {user_name}"
+        lead_name = f"Оплата платформы - {user_name}"
 
         price = payment.total_cost
 
@@ -409,8 +408,8 @@ class PaymentProcessor:
             payment_status=payment_status,
             last_payment_date=payment_date,
             payment_id=payment_id,
-            status_id=status_id,  # Перевести в целевой этап
-            total_paid=amount,  # Записать общий оплаченный итог (сумма всех курсов в текущей оплате)
+            status_id=status_id,
+            total_paid=amount,
         )
 
         logger.info(f"Поля сделки {lead_id} обновлены, бюджет установлен {amount}, переведена в этап {status_id}")
@@ -450,8 +449,6 @@ class PaymentProcessor:
         try:
             dt = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
             datetime_utc = dt.isoformat() + "Z"
-            # Конвертация в московское время (UTC+3)
-            # TODO: Использовать pytz для корректной конвертации
             datetime_local = dt.strftime("%Y-%m-%d %H:%M:%S") + " (Moscow)"
         except Exception as e:
             logger.warning(f"Ошибка парсинга даты: {e}")
