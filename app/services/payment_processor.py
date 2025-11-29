@@ -132,34 +132,93 @@ class PaymentProcessor:
 
             logger.info(f"Целевая воронка: pipeline_id={pipeline_id}, status_id={status_id}")
 
-            # Шаг 2: Матчинг контакта
-            contact = await self._find_or_create_contact(payment)
-            if contact is None:
-                logger.error("Contact not found and CREATE_IF_NOT_FOUND=False")
-                return ProcessResult(
-                    status="contact_not_found",
-                    message="Contact not found and CREATE_IF_NOT_FOUND=False",
-                )
+            # ========================================================================
+            # СТАРАЯ ЛОГИКА (ЗАКОММЕНТИРОВАНА): Поиск существующего контакта
+            # ========================================================================
+            # # Шаг 2: Матчинг контакта
+            # contact = await self._find_or_create_contact(payment)
+            # if contact is None:
+            #     logger.error("Contact not found and CREATE_IF_NOT_FOUND=False")
+            #     return ProcessResult(
+            #         status="contact_not_found",
+            #         message="Contact not found and CREATE_IF_NOT_FOUND=False",
+            #     )
+            #
+            # contact_id = contact["id"] if isinstance(contact, dict) else contact
+            # logger.info(f"Contact resolved: ID={contact_id}")
+            #
+            # # Шаг 3: Обновление полей контакта (идемпотентно)
+            # await self._update_contact_fields(contact_id, payment)
+            # ========================================================================
 
-            contact_id = contact["id"] if isinstance(contact, dict) else contact
-            logger.info(f"Contact resolved: ID={contact_id}")
+            # НОВАЯ ЛОГИКА: Всегда создавать новый контакт
+            logger.info("Создание нового контакта для каждого платежа...")
+            user = payment.course_order.user
+            name = f"{user.first_name} {user.last_name}".strip() or "Клиент без имени"
+            phone = user.phone or None
+            email = user.email or None
+            tg_id = user.telegram_id or None
+            tg_username = user.telegram_tag or None
 
-            # Шаг 3: Обновление полей контакта (идемпотентно)
-            await self._update_contact_fields(contact_id, payment)
+            contact_id = await self.client.create_contact(
+                name=name,
+                phone=phone,
+                email=email,
+                tg_id=tg_id,
+                tg_username=tg_username,
+            )
+            logger.info(f"Новый контакт создан: ID={contact_id}")
 
-            # Шаг 4: Матчинг активной сделки
-            lead_result = await self._find_or_create_lead(contact_id, payment, pipeline_id, status_id)
-            if lead_result is None:
-                logger.error("Lead not found and CREATE_IF_NOT_FOUND=False")
-                return ProcessResult(
-                    status="lead_not_found",
-                    contact_id=contact_id,
-                    message="Lead not found and CREATE_IF_NOT_FOUND=False",
-                )
+            # ========================================================================
+            # СТАРАЯ ЛОГИКА (ЗАКОММЕНТИРОВАНА): Поиск существующей сделки
+            # ========================================================================
+            # # Шаг 4: Матчинг активной сделки
+            # lead_result = await self._find_or_create_lead(contact_id, payment, pipeline_id, status_id)
+            # if lead_result is None:
+            #     logger.error("Lead not found and CREATE_IF_NOT_FOUND=False")
+            #     return ProcessResult(
+            #         status="lead_not_found",
+            #         contact_id=contact_id,
+            #         message="Lead not found and CREATE_IF_NOT_FOUND=False",
+            #     )
+            #
+            # lead, is_lead_created = lead_result
+            # lead_id = lead["id"] if isinstance(lead, dict) else lead
+            # logger.info(f"Lead resolved: ID={lead_id}")
+            # ========================================================================
 
-            lead, is_lead_created = lead_result
-            lead_id = lead["id"] if isinstance(lead, dict) else lead
-            logger.info(f"Lead resolved: ID={lead_id}")
+            # НОВАЯ ЛОГИКА: Всегда создавать новую сделку
+            logger.info(f"Создание новой сделки в воронке {pipeline_id} (этап {status_id})...")
+
+            user_name = f"{user.first_name} {user.last_name}".strip() or "Клиент без имени"
+            lead_name = f"Оплата платформы - {user_name}"
+            price = payment.total_cost
+
+            utm = payment.course_order.utm
+            utm_source = utm.source or None
+            utm_medium = utm.medium or None
+            utm_campaign = utm.campaign or None
+            utm_content = utm.content or None
+            utm_term = utm.term or None
+            ym_uid = utm.ym or None
+
+            lead_id = await self.client.create_lead(
+                name=lead_name,
+                contact_id=contact_id,
+                price=price,
+                pipeline_id=pipeline_id,
+                status_id=status_id,
+                utm_source=utm_source,
+                utm_medium=utm_medium,
+                utm_campaign=utm_campaign,
+                utm_content=utm_content,
+                utm_term=utm_term,
+                ym_uid=ym_uid,
+            )
+            logger.info(f"✓ Новая сделка создана: ID={lead_id}")
+
+            lead = {"id": lead_id}
+            is_lead_created = True
 
             # Шаг 5: Обновление полей сделки
             await self._update_lead_fields(lead_id, payment, status_id)
