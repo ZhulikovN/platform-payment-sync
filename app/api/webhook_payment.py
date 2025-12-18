@@ -228,6 +228,6 @@ async def health_check() -> JSONResponse:
         content={
             "status": "healthy",
             "service": "platform-payment-sync",
-            "version": "1.0.0",
+            "version": "6.0.0",
         },
     )
