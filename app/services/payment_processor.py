@@ -65,7 +65,7 @@ class PaymentProcessor:
         for partner in partner_sources:
             if partner.strip().lower() in utm_source:
                 logger.info(
-                    f"✓ UTM совпали: ПАРТНЕРЫ (ID={settings.AMO_PIPELINE_PARTNERS}, "
+                    f"UTM совпали: ПАРТНЕРЫ (ID={settings.AMO_PIPELINE_PARTNERS}, "
                     f"utm_source содержит '{partner}') → Автооплаты ООО"
                 )
                 return (
@@ -77,7 +77,7 @@ class PaymentProcessor:
         for medium in yandex_mediums:
             if medium.strip().lower() in utm_medium:
                 logger.info(
-                    f"✓ UTM совпали: Сайт Яндекс (ID={settings.AMO_PIPELINE_YANDEX}, "
+                    f"UTM совпали: Сайт Яндекс (ID={settings.AMO_PIPELINE_YANDEX}, "
                     f"utm_medium содержит '{medium}') → Автооплаты ООО"
                 )
                 return (
@@ -215,7 +215,7 @@ class PaymentProcessor:
                 utm_term=utm_term,
                 ym_uid=ym_uid,
             )
-            logger.info(f"✓ Новая сделка создана: ID={lead_id}")
+            logger.info(f"Новая сделка создана: ID={lead_id}")
 
             lead = {"id": lead_id}
             is_lead_created = True
@@ -226,7 +226,7 @@ class PaymentProcessor:
             # Шаг 6: Создание примечания
             await self._add_payment_note(lead_id, payment)
 
-            logger.info(f"✓ Payment {payment_id} processed successfully")
+            logger.info(f"Payment {payment_id} processed successfully")
             logger.info("=" * 80)
 
             await self.event_logger.log_payment(
