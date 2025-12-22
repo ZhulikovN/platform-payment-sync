@@ -1,5 +1,5 @@
 """Интеграционный тест для обновления этапа сделки через update_lead_fields."""
-# pytest tests/amocrm_client/test_update_lead_fields/test_update_lead_status.py -v -s --log-cli-level=INFO
+# poetry run pytest tests/tests_amocrm_client/test_update_lead_fields/test_update_lead_status.py -v -s --log-cli-level=INFO
 
 import logging
 
@@ -51,10 +51,11 @@ async def test_update_lead_fields_with_subjects_and_status() -> None:
         
         # Обновить все поля
         await client.update_lead_fields(
-            lead_id=test_lead_id,
+            lead_id=39546077,
             subjects=new_subjects,
             direction=new_direction,
-            status_id=new_status,
+            utm_source="op"
+            # status_id=new_status,
         )
         
         logger.info(f"\nМетод update_lead_fields вызван")
