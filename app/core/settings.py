@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     AMO_SUBJECT_BIOLOGY_GELYA: int = Field(..., description="enum_id для 'Биология (Геля)'")
     AMO_SUBJECT_INFORMATICS: int = Field(..., description="enum_id для 'Информатика'")
     AMO_SUBJECT_MATH_PROF_SASHA: int = Field(..., description="enum_id для 'Проф. мат (Саша)'")
+    AMO_LEAD_FIELD_SUBJECT_MATH_OGE: int = Field(..., description="enum_id для 'Математика ОГЭ'")
+    AMO_LEAD_FIELD_SUBJECT_MATH_7_8: int = Field(..., description="enum_id для 'Математика'")
 
     # Enum ID для направлений
     AMO_DIRECTION_OGE: int = Field(..., description="enum_id для направления 'ОГЭ'")
@@ -79,6 +81,18 @@ class Settings(BaseSettings):
     AMO_PIPELINE_ID: int = Field(..., description="ID воронки 'ПАРТНЕРЫ'")
     AMO_DEFAULT_STATUS_ID: int = Field(..., description="ID воронки 'ПАРТНЕРЫ'")
 
+    # Дополнительные воронки для OP поиска
+    PIPELINE_SITE_TG: int = Field(..., description="ID воронки 'Сайт TG'")
+    PIPELINE_VK_EGE: int = Field(..., description="ID воронки 'VK ЕГЭ'")
+    PIPELINE_VK_OGE: int = Field(..., description="ID воронки 'VK ОГЭ'")
+    PIPELINE_TG_EGE: int = Field(..., description="ID воронки 'TG ЕГЭ'")
+    PIPELINE_TG_OGE: int = Field(..., description="ID воронки 'TG ОГЭ'")
+    PIPELINE_TG_BOTS: int = Field(..., description="ID воронки 'TG БОТЫ'")
+    PIPELINE_TG_AI: int = Field(..., description="ID воронки 'TG AI'")
+    PIPELINE_TG_PARENTS: int = Field(..., description="ID воронки 'TG Родители'")
+    PIPELINE_WEBINARS: int = Field(..., description="ID воронки 'Вебинары'")
+    PIPELINE_7_8_CLASS: int = Field(..., description="ID воронки '7/8 класс'")
+
     # Статусы сделок (общие для всех воронок)
     STATUS_SUCCESS: int = Field(default=142, description="ID статуса 'Успешно реализовано' (общий для всех воронок)")
     STATUS_CLOSED: int = Field(default=143, description="ID статуса 'Закрыто и не реализовано' (общий для всех воронок)")
@@ -87,6 +101,11 @@ class Settings(BaseSettings):
     AMO_STATUS_AUTOPAY_SITE: int = Field(..., description="ID этапа 'Автооплаты ООО' в воронке Сайт")
     AMO_STATUS_AUTOPAY_PARTNERS: int = Field(..., description="ID этапа 'Автооплаты ООО' в воронке ПАРТНЕРЫ")
     AMO_STATUS_AUTOPAY_YANDEX: int = Field(..., description="ID этапа 'Автооплаты ООО' в воронке Сайт Яндекс")
+    
+    # Дополнительные статусы автооплат для OP
+    PIPELINE_SITE_TG_AUTOPAY: int = Field(..., description="ID статуса автооплаты для Сайт TG")
+    PIPELINE_WEBINARS_AUTOPAY: int = Field(..., description="ID статуса автооплаты для Вебинары")
+    PIPELINE_7_8_CLASS_AUTOPAY: int = Field(..., description="ID статуса автооплаты для 7/8 класс")
 
     # UTM правила для определения воронки
     PARTNER_SOURCES: str = Field(..., description="utm_source для воронки ПАРТНЕРЫ (через запятую)")

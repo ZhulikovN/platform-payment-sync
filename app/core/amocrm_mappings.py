@@ -63,12 +63,12 @@ SUBJECTS_MAPPING: dict[str, int] = {
     "Биология (Женя)": settings.AMO_SUBJECT_BIOLOGY_ZHENYA,
     "Обществознание ОГЭ": settings.AMO_SUBJECT_OBSHCHESTVO,
     "Русский ОГЭ": settings.AMO_SUBJECT_RUSSIAN,
-    "Математика ОГЭ": settings.AMO_SUBJECT_MATH_BASE,
+    "Математика ОГЭ": settings.AMO_LEAD_FIELD_SUBJECT_MATH_OGE,
     "Биология ОГЭ": settings.AMO_SUBJECT_BIOLOGY_GELYA,
     "Информатика": settings.AMO_SUBJECT_INFORMATICS,
     "Проф. мат (Саша)": settings.AMO_SUBJECT_MATH_PROF_SASHA,
     "Биология (Геля)": settings.AMO_SUBJECT_BIOLOGY_GELYA,
-    "Математика": settings.AMO_SUBJECT_MATH_BASE,
+    "Математика": settings.AMO_LEAD_FIELD_SUBJECT_MATH_7_8,
 }
 
 DIRECTION_MAPPING: dict[str, int] = {

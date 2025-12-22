@@ -698,6 +698,12 @@ class AmoCRMClient:
         payment_id: str | None = None,
         status_id: int | None = None,
         total_paid: int | None = None,
+        utm_source: str | None = None,
+        utm_medium: str | None = None,
+        utm_campaign: str | None = None,
+        utm_content: str | None = None,
+        utm_term: str | None = None,
+        ym_uid: str | None = None,
     ) -> None:
         """
         Обновить кастомные поля сделки и бюджет одним запросом.
@@ -710,8 +716,14 @@ class AmoCRMClient:
             payment_status: Статус оплаты
             last_payment_date: Дата последней оплаты
             payment_id: Payment ID
-            status_id: ID этапа для перевода сделки
+            status_id: ID этапа для перевода сделки (если None - не менять)
             total_paid: Общий оплаченный итог (сумма всех курсов в текущей оплате, записывается в "Бюджет")
+            utm_source: UTM source
+            utm_medium: UTM medium
+            utm_campaign: UTM campaign
+            utm_content: UTM content
+            utm_term: UTM term
+            ym_uid: Yandex Metrika UID
         """
         logger.info(f"Updating lead {lead_id} fields" + (f" and budget ({total_paid})" if total_paid else ""))
 
@@ -787,6 +799,43 @@ class AmoCRMClient:
                     )
                 except ValueError:
                     logger.warning(f"Payment ID '{payment_id}' is not a number, skipping")
+
+            # UTM метки
+            if utm_source:
+                logger.info(f"Updating UTM source: {utm_source}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_UTM_SOURCE, "values": [{"value": utm_source}]}
+                )
+
+            if utm_medium:
+                logger.info(f"Updating UTM medium: {utm_medium}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_UTM_MEDIUM, "values": [{"value": utm_medium}]}
+                )
+
+            if utm_campaign:
+                logger.info(f"Updating UTM campaign: {utm_campaign}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_UTM_CAMPAIGN, "values": [{"value": utm_campaign}]}
+                )
+
+            if utm_content:
+                logger.info(f"Updating UTM content: {utm_content}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_UTM_CONTENT, "values": [{"value": utm_content}]}
+                )
+
+            if utm_term:
+                logger.info(f"Updating UTM term: {utm_term}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_UTM_TERM, "values": [{"value": utm_term}]}
+                )
+
+            if ym_uid:
+                logger.info(f"Updating Yandex Metrika UID: {ym_uid}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_YM_UID, "values": [{"value": ym_uid}]}
+                )
 
             if status_id is not None:
                 logger.info(f"Updating lead status to: {status_id}")
@@ -880,4 +929,266 @@ class AmoCRMClient:
 
         except Exception as e:
             logger.error(f"Error adding note to lead: {e}")
+            raise
+
+    async def find_op_lead(
+        self,
+        telegram_id: str | None,
+        phone: str | None,
+        email: str | None,
+        is_utm_op: bool = True,
+    ) -> dict[str, Any] | None:
+        """
+        Найти сделку для OP платежей (utm_source=op) или по названию "Оплата:...".
+
+        Два сценария поиска:
+        1. utm_source=op: искать в 13 воронках (без проверки названия)
+        2. Название "Оплата: ОГЭ/ЕГЭ/Средняя школа": искать в 2 воронках + проверка названия
+
+        Args:
+            telegram_id: Telegram ID
+            phone: Телефон
+            email: Email
+            is_utm_op: True если utm_source=op, False если по названию сделки
+
+        Returns:
+            Данные сделки или None если не найдена
+        """
+        logger.info(f"Lead search: is_utm_op={is_utm_op}")
+
+        # Определить воронки и исключаемые статусы в зависимости от сценария
+        if is_utm_op:
+            # СЦЕНАРИЙ 1: utm_source=op (широкий поиск в 13 воронках)
+            allowed_pipelines = [
+                settings.AMO_PIPELINE_SITE,
+                settings.PIPELINE_SITE_TG,
+                settings.AMO_PIPELINE_YANDEX,
+                settings.AMO_PIPELINE_PARTNERS,
+                settings.PIPELINE_VK_EGE,
+                settings.PIPELINE_VK_OGE,
+                settings.PIPELINE_TG_EGE,
+                settings.PIPELINE_TG_OGE,
+                settings.PIPELINE_TG_BOTS,
+                settings.PIPELINE_TG_AI,
+                settings.PIPELINE_TG_PARENTS,
+                settings.PIPELINE_WEBINARS,
+                settings.PIPELINE_7_8_CLASS,
+            ]
+
+            excluded_statuses = [
+                settings.AMO_STATUS_AUTOPAY_SITE,
+                settings.PIPELINE_SITE_TG_AUTOPAY,
+                settings.AMO_STATUS_AUTOPAY_YANDEX,
+                settings.PIPELINE_WEBINARS_AUTOPAY,
+                settings.AMO_STATUS_AUTOPAY_PARTNERS,
+                settings.PIPELINE_7_8_CLASS_AUTOPAY,
+                settings.STATUS_SUCCESS,
+                settings.STATUS_CLOSED,
+            ]
+        else:
+            # СЦЕНАРИЙ 2: по названию "Оплата:..." (узкий поиск в 2 воронках)
+            allowed_pipelines = [
+                settings.AMO_PIPELINE_SITE,
+                settings.PIPELINE_7_8_CLASS,
+
+            ]
+
+            excluded_statuses = [
+                settings.AMO_STATUS_AUTOPAY_SITE,
+                settings.PIPELINE_7_8_CLASS_AUTOPAY,
+                settings.STATUS_SUCCESS,
+                settings.STATUS_CLOSED,
+            ]
+
+        logger.info(f"Searching in {len(allowed_pipelines)} pipelines, excluding {len(excluded_statuses)} statuses")
+
+        # Найти контакт
+        contact = await self.find_contact(telegram_id, phone, email)
+        if not contact:
+            logger.info("Contact not found for lead search")
+            return None
+
+        contact_id = contact["id"]
+        logger.info(f"Contact found: {contact_id}")
+
+        # Получить все сделки контакта
+        try:
+            leads = []
+
+            # Поиск по telegram_id
+            if telegram_id:
+                logger.info(f"Searching leads by telegram_id: {telegram_id}")
+                try:
+                    response = await self._make_request(
+                        "GET",
+                        "/api/v4/leads",
+                        data={
+                            "filter[query]": telegram_id,
+                            "limit": 50,
+                        },
+                    )
+                    tg_leads = response.get("_embedded", {}).get("leads", [])
+                    logger.info(f"Found {len(tg_leads)} leads by telegram_id")
+                    leads.extend(tg_leads)
+                except Exception as e:
+                    logger.warning(f"Error searching leads by telegram_id: {e}")
+
+            # Поиск по телефону
+            if phone:
+                normalized_phone = normalize_phone(phone)
+                logger.info(f"Searching leads by phone: {phone} (normalized: {normalized_phone})")
+                try:
+                    response = await self._make_request(
+                        "GET",
+                        "/api/v4/leads",
+                        data={
+                            "filter[query]": normalized_phone,
+                            "limit": 50,
+                        },
+                    )
+                    phone_leads = response.get("_embedded", {}).get("leads", [])
+                    logger.info(f"Found {len(phone_leads)} leads by phone")
+                    leads.extend(phone_leads)
+                except Exception as e:
+                    logger.warning(f"Error searching leads by phone: {e}")
+
+            # Поиск по email
+            if email:
+                logger.info(f"Searching leads by email: {email}")
+                try:
+                    response = await self._make_request(
+                        "GET",
+                        "/api/v4/leads",
+                        data={
+                            "filter[query]": email,
+                            "limit": 50,
+                        },
+                    )
+                    email_leads = response.get("_embedded", {}).get("leads", [])
+                    logger.info(f"Found {len(email_leads)} leads by email")
+                    leads.extend(email_leads)
+                except Exception as e:
+                    logger.warning(f"Error searching leads by email: {e}")
+
+            if not leads:
+                logger.info("No leads found by any criteria")
+                return None
+
+            unique_leads = {lead["id"]: lead for lead in leads}.values()
+            leads = list(unique_leads)
+            logger.info(f"Total unique leads found: {len(leads)}")
+
+            verified_leads = []
+            for lead in leads:
+                lead_id = lead.get("id")
+                try:
+                    lead_with_contacts = await self._make_request("GET", f"/api/v4/leads/{lead_id}", data={"with": "contacts"})
+
+                    embedded_contacts = lead_with_contacts.get("_embedded", {}).get("contacts", [])
+                    contact_ids = [c.get("id") for c in embedded_contacts]
+
+                    if contact_id in contact_ids:
+                        logger.info(f"Lead {lead_id} verified: contains contact {contact_id}")
+                        verified_leads.append(lead_with_contacts)
+                    else:
+                        logger.info(f"Lead {lead_id} skipped: contact {contact_id} not found")
+
+                except Exception as e:
+                    logger.warning(f"Error verifying lead {lead_id}: {e}")
+                    continue
+
+            if not verified_leads:
+                logger.info("No leads matched contact_id after verification")
+                return None
+
+            filtered_leads = [
+                lead
+                for lead in verified_leads
+                if lead.get("pipeline_id") in allowed_pipelines
+                and lead.get("status_id") not in excluded_statuses
+                and not lead.get("is_deleted", False)
+            ]
+
+            logger.info(f"Leads after pipeline/status filtering: {len(filtered_leads)}")
+
+            if not filtered_leads:
+                logger.info("No leads found after filtering")
+                return None
+
+            if not is_utm_op:
+                target_names = ["Оплата: ОГЭ", "Оплата: ЕГЭ", "Оплата: Средняя школа"]
+                name_filtered_leads = []
+
+                for lead in filtered_leads:
+                    lead_name = lead.get("name", "")
+                    if lead_name in target_names:
+                        logger.info(f"Lead {lead['id']} matched by name: {lead_name}")
+                        name_filtered_leads.append(lead)
+
+                filtered_leads = name_filtered_leads
+
+            if not filtered_leads:
+                logger.info("No leads matched name criteria")
+                return None
+
+            latest_lead = max(filtered_leads, key=lambda x: x.get("updated_at", 0))
+            logger.info(
+                f"Selected latest lead: ID={latest_lead['id']}, "
+                f"Name={latest_lead.get('name')}, "
+                f"Pipeline={latest_lead.get('pipeline_id')}, "
+                f"Status={latest_lead.get('status_id')}"
+            )
+
+            return latest_lead  # type: ignore
+
+        except Exception as e:
+            logger.error(f"Error finding lead: {e}")
+            return None
+
+    async def create_task_for_contact_manager(
+        self,
+        lead_id: int,
+        text: str,
+    ) -> int:
+        """
+        Создать задачу ответственному за сделку менеджеру.
+
+        Args:
+            lead_id: ID сделки
+            text: Текст задачи
+
+        Returns:
+            ID созданной задачи
+        """
+        logger.info(f"Creating task for lead {lead_id} manager")
+
+        try:
+            # Получить сделку чтобы узнать responsible_user_id
+            lead_response = await self._make_request("GET", f"/api/v4/leads/{lead_id}")
+            responsible_user_id = lead_response.get("responsible_user_id")
+
+            if not responsible_user_id:
+                logger.warning(f"Lead {lead_id} has no responsible_user_id, cannot create task")
+                raise ValueError(f"Lead {lead_id} has no responsible_user_id")
+
+            logger.info(f"Lead manager: user_id={responsible_user_id}")
+
+            # Создать задачу
+            task_data = {
+                "text": text,
+                "complete_till": int(datetime.now().timestamp()) + 86400,  # +1 день
+                "entity_id": lead_id,
+                "entity_type": "leads",
+                "responsible_user_id": responsible_user_id,
+                "task_type_id": 1,  # Тип задачи: Звонок
+            }
+
+            response = await self._make_request("POST", "/api/v4/tasks", data=[task_data])
+            task_id: int = response["_embedded"]["tasks"][0]["id"]
+            logger.info(f"Task created: {task_id} for user {responsible_user_id}")
+
+            return task_id
+
+        except Exception as e:
+            logger.error(f"Error creating task for contact manager: {e}")
             raise

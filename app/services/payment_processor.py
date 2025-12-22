@@ -38,6 +38,19 @@ class PaymentProcessor:
         self.client = amocrm_client or AmoCRMClient()
         self.event_logger = event_logger or EventLogger()
 
+    def is_op_payment(self, payment: PaymentWebhook) -> bool:
+        """
+        Проверить является ли это OP платежом (utm_source=op).
+
+        Args:
+            payment: Данные об оплате
+
+        Returns:
+            True если utm_source=op, иначе False
+        """
+        utm_source = (payment.course_order.utm.source or "").lower()
+        return utm_source == "op"
+
     def determine_pipeline_and_status(self, utm: PaymentUTM) -> tuple[int, int]:
         """
         Определить воронку и этап на основе UTM меток.
@@ -65,7 +78,7 @@ class PaymentProcessor:
         for partner in partner_sources:
             if partner.strip().lower() in utm_source:
                 logger.info(
-                    f"✓ UTM совпали: ПАРТНЕРЫ (ID={settings.AMO_PIPELINE_PARTNERS}, "
+                    f"UTM совпали: ПАРТНЕРЫ (ID={settings.AMO_PIPELINE_PARTNERS}, "
                     f"utm_source содержит '{partner}') → Автооплаты ООО"
                 )
                 return (
@@ -77,7 +90,7 @@ class PaymentProcessor:
         for medium in yandex_mediums:
             if medium.strip().lower() in utm_medium:
                 logger.info(
-                    f"✓ UTM совпали: Сайт Яндекс (ID={settings.AMO_PIPELINE_YANDEX}, "
+                    f"UTM совпали: Сайт Яндекс (ID={settings.AMO_PIPELINE_YANDEX}, "
                     f"utm_medium содержит '{medium}') → Автооплаты ООО"
                 )
                 return (
@@ -126,6 +139,119 @@ class PaymentProcessor:
                     status="duplicate",
                     message=f"Payment {payment_id} already processed",
                 )
+
+            # ========================================================================
+            # ЛОГИКА ПОИСКА СУЩЕСТВУЮЩИХ СДЕЛОК
+            # ========================================================================
+            user = payment.course_order.user
+            tg_id = user.telegram_id or None
+            phone = user.phone or None
+            email = user.email or None
+
+            existing_lead = None
+            is_op_utm = self.is_op_payment(payment)
+
+            # ШАГ 1: ВСЕГДА искать сделки с названием "Оплата: ОГЭ/ЕГЭ/Средняя школа" в 2 воронках
+            logger.info("=" * 80)
+            logger.info("ШАГ 1: Поиск сделок с названием 'Оплата: ОГЭ/ЕГЭ/Средняя школа'")
+            logger.info("=" * 80)
+
+            existing_lead = await self.client.find_op_lead(
+                telegram_id=tg_id,
+                phone=phone,
+                email=email,
+                is_utm_op=False,  # Поиск по названию → 2 воронки
+            )
+
+            if existing_lead:
+                logger.info(f"Сделка с названием 'Оплата:...' найдена: {existing_lead['id']}")
+
+            # ШАГ 2: ЕСЛИ utm_source=op И сделка не найдена на шаге 1
+            if is_op_utm and not existing_lead:
+                logger.info("=" * 80)
+                logger.info("ШАГ 2: utm_source=op обнаружен, расширенный поиск в 13 воронках")
+                logger.info("=" * 80)
+
+                existing_lead = await self.client.find_op_lead(
+                    telegram_id=tg_id,
+                    phone=phone,
+                    email=email,
+                    is_utm_op=True,  # utm_source=op → 13 воронок
+                )
+
+                if existing_lead:
+                    logger.info(f"OP сделка найдена в расширенном поиске: {existing_lead['id']}")
+
+            # ШАГ 3: ЕСЛИ СДЕЛКА НАЙДЕНА - обновить БЕЗ смены воронки/статуса
+            if existing_lead:
+                logger.info("=" * 80)
+                logger.info("СДЕЛКА НАЙДЕНА - обновляем БЕЗ смены воронки/статуса")
+                logger.info("=" * 80)
+
+                lead_id = existing_lead["id"]
+                current_pipeline = existing_lead["pipeline_id"]
+                current_status = existing_lead["status_id"]
+
+                # Получить ID контакта из сделки
+                embedded_contacts = existing_lead.get("_embedded", {}).get("contacts", [])
+                contact_id = embedded_contacts[0]["id"] if embedded_contacts else None
+
+                if not contact_id:
+                    logger.error(f"Lead {lead_id} has no contacts!")
+                    raise ValueError(f"Lead {lead_id} has no contacts")
+
+                logger.info(
+                    f"Обновляем сделку: lead_id={lead_id}, contact_id={contact_id}, "
+                    f"pipeline={current_pipeline}, status={current_status}"
+                )
+
+                # Обновить только поля платежа (БЕЗ status_id!)
+                await self._update_lead_fields(lead_id, payment, status_id=None)
+
+                # Добавить примечание
+                await self._add_payment_note(lead_id, payment)
+
+                # Создать задачу для менеджера сделки
+                logger.info(f"Создание задачи для менеджера сделки {lead_id}")
+                try:
+                    task_id = await self.client.create_task_for_contact_manager(
+                        lead_id=lead_id,
+                        text="Пришел платеж. Проверь все данные на корректность и отправь сделку в нужный этап",
+                    )
+                    logger.info(f"Задача создана: task_id={task_id}")
+                except Exception as task_error:
+                    logger.error(f"Ошибка создания задачи: {task_error}")
+                    # Продолжаем выполнение, задача не критична
+
+                logger.info(f"Платеж {payment_id} обработан успешно (существующая сделка обновлена)")
+                logger.info("=" * 80)
+
+                await self.event_logger.log_payment(
+                    payment_id=payment_id,
+                    amount=payment.total_cost,
+                    payment_date=payment.course_order.updated_at,
+                    status="success",
+                    contact_id=contact_id,
+                    lead_id=lead_id,
+                    pipeline_id=current_pipeline,
+                    status_id=current_status,
+                    is_lead_created=False,  # Обновили существующую
+                    payload=payment.model_dump_json(),
+                )
+
+                return ProcessResult(
+                    status="success",
+                    contact_id=contact_id,
+                    lead_id=lead_id,
+                    message=f"Payment {payment_id} processed (existing lead updated)",
+                )
+
+            # ========================================================================
+            # СТАНДАРТНАЯ ЛОГИКА - создание новой сделки в автооплатах
+            # ========================================================================
+            logger.info("=" * 80)
+            logger.info("СДЕЛКА НЕ НАЙДЕНА - создаем новую в автооплатах")
+            logger.info("=" * 80)
 
             utm = payment.course_order.utm
             pipeline_id, status_id = self.determine_pipeline_and_status(utm)
@@ -215,18 +341,18 @@ class PaymentProcessor:
                 utm_term=utm_term,
                 ym_uid=ym_uid,
             )
-            logger.info(f"✓ Новая сделка создана: ID={lead_id}")
+            logger.info(f"Новая сделка создана: ID={lead_id}")
 
             lead = {"id": lead_id}
             is_lead_created = True
 
-            # Шаг 5: Обновление полей сделки
-            await self._update_lead_fields(lead_id, payment, status_id)
+            # Шаг 5: Обновление полей сделки (skip_utm=True, т.к. UTM уже установлены в create_lead)
+            await self._update_lead_fields(lead_id, payment, status_id, skip_utm=True)
 
             # Шаг 6: Создание примечания
             await self._add_payment_note(lead_id, payment)
 
-            logger.info(f"✓ Payment {payment_id} processed successfully")
+            logger.info(f"Payment {payment_id} processed successfully")
             logger.info("=" * 80)
 
             await self.event_logger.log_payment(
@@ -412,7 +538,9 @@ class PaymentProcessor:
         logger.info(f"✓ Сделка создана: ID={lead_id}")
         return ({"id": lead_id}, True)  # Создана
 
-    async def _update_lead_fields(self, lead_id: int, payment: PaymentWebhook, status_id: int) -> None:
+    async def _update_lead_fields(
+        self, lead_id: int, payment: PaymentWebhook, status_id: int | None, skip_utm: bool = False
+    ) -> None:
         """
         Обновить кастомные поля сделки.
 
@@ -424,12 +552,14 @@ class PaymentProcessor:
         - Статус оплаты
         - Дата/время последней оплаты
         - Payment ID
-        - Этап сделки (согласно UTM)
+        - Этап сделки (если status_id передан)
+        - UTM метки (если skip_utm=False)
 
         Args:
             lead_id: ID сделки
             payment: Данные об оплате
-            status_id: ID этапа для обновления сделки
+            status_id: ID этапа для обновления сделки (если None - этап не меняется)
+            skip_utm: Если True - не обновлять UTM метки (используется после create_lead)
         """
         logger.info(f"Обновление полей сделки {lead_id}...")
 
@@ -452,12 +582,26 @@ class PaymentProcessor:
         subjects_enum_ids = list(set(subjects_enum_ids))
 
         amount = payment.total_cost
-
         payment_status = payment.course_order.status
-
         payment_date = payment.course_order.updated_at
-
         payment_id = payment.course_order.payment_id
+
+        # UTM метки (если не пропускаем)
+        utm_source = None
+        utm_medium = None
+        utm_campaign = None
+        utm_content = None
+        utm_term = None
+        ym_uid = None
+
+        if not skip_utm:
+            utm = payment.course_order.utm
+            utm_source = utm.source or None
+            utm_medium = utm.medium or None
+            utm_campaign = utm.campaign or None
+            utm_content = utm.content or None
+            utm_term = utm.term or None
+            ym_uid = utm.ym or None
 
         await self.client.update_lead_fields(
             lead_id=lead_id,
@@ -467,11 +611,20 @@ class PaymentProcessor:
             payment_status=payment_status,
             last_payment_date=payment_date,
             payment_id=payment_id,
-            status_id=status_id,
+            status_id=status_id,  # Может быть None - тогда статус не меняется
             total_paid=amount,
+            utm_source=utm_source,
+            utm_medium=utm_medium,
+            utm_campaign=utm_campaign,
+            utm_content=utm_content,
+            utm_term=utm_term,
+            ym_uid=ym_uid,
         )
 
-        logger.info(f"Поля сделки {lead_id} обновлены, бюджет установлен {amount}, переведена в этап {status_id}")
+        if status_id:
+            logger.info(f"Поля сделки {lead_id} обновлены, бюджет установлен {amount}, переведена в этап {status_id}")
+        else:
+            logger.info(f"Поля сделки {lead_id} обновлены, бюджет установлен {amount}, этап НЕ изменен (OP платеж)")
 
     async def _add_payment_note(self, lead_id: int, payment: PaymentWebhook) -> None:
         """
