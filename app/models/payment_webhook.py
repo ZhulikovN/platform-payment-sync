@@ -66,6 +66,7 @@ class CourseOrder(BaseModel):
     payment_id: str | None = Field(None, description="Уникальный ID оплаты (для защиты от дубликатов)")
     payment_method: str | None = Field(None, description="Метод оплаты (SBP, карта и т.д.)")
     currency: str = Field(default="RUB", description="Валюта оплаты")
+    is_parent: bool = Field(default=False, description="Покупатель - родитель (True) или ученик (False)")
 
 
 class PaymentWebhook(BaseModel):
