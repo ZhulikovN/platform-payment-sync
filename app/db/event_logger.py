@@ -1,5 +1,6 @@
 """Event logger for payment processing events."""
 
+import asyncio
 import logging
 import os
 from datetime import UTC, datetime
@@ -15,6 +16,8 @@ class EventLogger:
     Класс для логирования событий обработки платежей в SQLite.
 
     Защита от дубликатов и аналитика.
+    
+    Thread-safe инициализация БД для параллельной обработки.
     """
 
     def __init__(self, db_path: str = "./db/payments.sqlite") -> None:
@@ -31,85 +34,104 @@ class EventLogger:
             self.db_path = db_path
 
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        
+        self._db_initialized: bool = False
+        self._init_lock = asyncio.Lock()
 
     async def _init_database(self) -> None:
-        """Инициализация базы данных и создание таблицы."""
-        try:
-            async with aiosqlite.connect(self.db_path) as db:
-                await db.execute(
+        """
+        Инициализация базы данных и создание таблицы.
+        
+        Thread-safe: при параллельных вызовах только первый создаст таблицы,
+        остальные дождутся завершения и вернутся сразу.
+        
+        Это решает проблему SQLite lock при Semaphore(2+).
+        """
+        if self._db_initialized:
+            return
+        
+        async with self._init_lock:
+            if self._db_initialized:
+                return
+            
+            try:
+                async with aiosqlite.connect(self.db_path) as db:
+                    await db.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS payment_events (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                            -- Данные платежа
+                            payment_id TEXT NOT NULL UNIQUE,
+                            amount INTEGER NOT NULL,
+                            payment_date TEXT NOT NULL,
+
+                            -- Результат обработки
+                            status TEXT NOT NULL,
+                            contact_id INTEGER,
+                            lead_id INTEGER,
+
+                            -- Аналитика
+                            pipeline_id INTEGER,
+                            status_id INTEGER,
+                            is_lead_created INTEGER,
+
+                            -- Отладка
+                            retry_count INTEGER DEFAULT 0,
+                            last_error TEXT,
+                            payload TEXT NOT NULL,
+
+                            -- Временные метки
+                            created_at TEXT NOT NULL,
+                            processed_at TEXT
+                        )
                     """
-                    CREATE TABLE IF NOT EXISTS payment_events (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-                        -- Данные платежа
-                        payment_id TEXT NOT NULL UNIQUE,
-                        amount INTEGER NOT NULL,
-                        payment_date TEXT NOT NULL,
-
-                        -- Результат обработки
-                        status TEXT NOT NULL,
-                        contact_id INTEGER,
-                        lead_id INTEGER,
-
-                        -- Аналитика
-                        pipeline_id INTEGER,
-                        status_id INTEGER,
-                        is_lead_created INTEGER,
-
-                        -- Отладка
-                        retry_count INTEGER DEFAULT 0,
-                        last_error TEXT,
-                        payload TEXT NOT NULL,
-
-                        -- Временные метки
-                        created_at TEXT NOT NULL,
-                        processed_at TEXT
                     )
-                """
-                )
 
-                await db.execute(
+                    await db.execute(
+                        """
+                        CREATE INDEX IF NOT EXISTS idx_payment_id
+                        ON payment_events(payment_id)
                     """
-                    CREATE INDEX IF NOT EXISTS idx_payment_id
-                    ON payment_events(payment_id)
-                """
-                )
+                    )
 
-                await db.execute(
+                    await db.execute(
+                        """
+                        CREATE INDEX IF NOT EXISTS idx_contact_id
+                        ON payment_events(contact_id)
                     """
-                    CREATE INDEX IF NOT EXISTS idx_contact_id
-                    ON payment_events(contact_id)
-                """
-                )
+                    )
 
-                await db.execute(
+                    await db.execute(
+                        """
+                        CREATE INDEX IF NOT EXISTS idx_lead_id
+                        ON payment_events(lead_id)
                     """
-                    CREATE INDEX IF NOT EXISTS idx_lead_id
-                    ON payment_events(lead_id)
-                """
-                )
+                    )
 
-                await db.execute(
+                    await db.execute(
+                        """
+                        CREATE INDEX IF NOT EXISTS idx_created_at
+                        ON payment_events(created_at)
                     """
-                    CREATE INDEX IF NOT EXISTS idx_created_at
-                    ON payment_events(created_at)
-                """
-                )
+                    )
 
-                await db.execute(
+                    await db.execute(
+                        """
+                        CREATE INDEX IF NOT EXISTS idx_status
+                        ON payment_events(status)
                     """
-                    CREATE INDEX IF NOT EXISTS idx_status
-                    ON payment_events(status)
-                """
-                )
+                    )
 
-                await db.commit()
+                    await db.commit()
+                
+                self._db_initialized = True
 
-            logger.info(f"База данных инициализирована: {self.db_path}")
+                logger.info(f"База данных инициализирована: {self.db_path}")
 
-        except Exception as e:
-            logger.error(f"Ошибка при инициализации базы данных: {e}")
-            raise
+            except Exception as e:
+                logger.error(f"Ошибка при инициализации базы данных: {e}")
+                raise
 
     async def is_payment_processed(self, payment_id: str) -> bool:
         """
@@ -121,6 +143,8 @@ class EventLogger:
         Returns:
             bool: True если платеж уже обрабатывался
         """
+        await self._init_database()
+        
         try:
             async with aiosqlite.connect(self.db_path) as db:
                 async with db.execute(
@@ -173,6 +197,8 @@ class EventLogger:
             error: Текст ошибки (если есть)
             payload: Полный JSON webhook (для отладки)
         """
+        await self._init_database()
+        
         timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         processed_at = timestamp if status == "success" else None
 

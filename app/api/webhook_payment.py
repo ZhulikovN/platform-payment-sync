@@ -256,7 +256,7 @@ async def process_payment_batch_parallel(
             "results": [],
         }
 
-    semaphore = Semaphore(1)
+    semaphore = Semaphore(2)
 
     start_time = time.time()
 
@@ -388,7 +388,6 @@ async def process_payment_batch_parallel(
 async def receive_payment_batch(
     request: Request,
     background_tasks: BackgroundTasks,
-    x_webhook_secret: str = Header(None, alias="X-WEBHOOK-SECRET", description="HMAC-SHA256 подпись тела запроса"),
     processor: PaymentProcessor = Depends(get_payment_processor),
 ) -> JSONResponse:
     """
@@ -400,45 +399,26 @@ async def receive_payment_batch(
     Обработка выполняется асинхронно - endpoint сразу возвращает 202 Accepted.
     Результаты можно отслеживать через логи.
 
-    Аутентификация: HMAC-SHA256 подпись в заголовке X-WEBHOOK-SECRET
+    БЕЗ HMAC проверки - для внутреннего использования (OP выгрузки).
 
     Args:
         request: FastAPI Request для получения сырого тела
         background_tasks: FastAPI background tasks для фоновой обработки
-        x_webhook_secret: HMAC-SHA256 подпись тела запроса (hex строка)
         processor: PaymentProcessor для обработки оплат (dependency injection)
 
     Returns:
         JSONResponse с подтверждением принятия задачи
 
     Raises:
-        HTTPException: 401 если подпись неверная
         HTTPException: 400 если данные некорректные или батч > 1000
     """
     logger.info("=" * 80)
-    logger.info("Received BATCH webhook request")
+    logger.info("Received BATCH webhook request (no HMAC)")
     logger.info("=" * 80)
 
     body = await request.body()
 
     logger.debug(f"Request body size: {len(body)} bytes")
-
-    if not x_webhook_secret:
-        logger.error("Missing X-WEBHOOK-SECRET header")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing X-WEBHOOK-SECRET header",
-        )
-
-    logger.info("Verifying HMAC-SHA256 signature...")
-    if not verify_hmac_signature(body, x_webhook_secret, settings.WEBHOOK_SECRET):
-        logger.warning("Invalid HMAC signature")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid HMAC signature",
-        )
-
-    logger.info("✓ HMAC signature verified successfully")
 
     try:
         payload_list = json.loads(body.decode("utf-8"))
@@ -512,8 +492,8 @@ async def health_check() -> JSONResponse:
             "service": "platform-payment-sync",
             "version": "7.0.0",
             "endpoints": {
-                "single": "/webhook/payment",
-                "batch": "/webhook/payment-batch (up to 1000)",
+                "single": "/webhook/payment (with HMAC)",
+                "batch": "/webhook/payment-batch (no HMAC, up to 1000)",
             },
         },
     )

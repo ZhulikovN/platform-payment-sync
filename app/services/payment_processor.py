@@ -129,8 +129,6 @@ class PaymentProcessor:
         logger.info(f"Начало обработки оплаты: payment_id={payment_id}")
         logger.info("=" * 80)
 
-        await self.event_logger._init_database()  # pylint: disable=protected-access
-
         try:
             # Шаг 1: Проверка дубликата по payment_id
             if await self.event_logger.is_payment_processed(payment_id):
