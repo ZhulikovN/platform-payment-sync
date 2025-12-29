@@ -45,9 +45,16 @@ class Settings(BaseSettings):
     AMO_LEAD_FIELD_SUBJECT_MATH_OGE: int = Field(..., description="enum_id для 'Математика ОГЭ'")
     AMO_LEAD_FIELD_SUBJECT_MATH_7_8: int = Field(..., description="enum_id для 'Математика'")
 
-    # Enum ID для направлений
-    AMO_DIRECTION_OGE: int = Field(..., description="enum_id для направления 'ОГЭ'")
-    AMO_DIRECTION_EGE: int = Field(..., description="enum_id для направления 'ЕГЭ'")
+    # Enum ID для направлений (по классам/курсам)
+    AMO_DIRECTION_CLASS_11: int = Field(..., description="enum_id для направления 'Полугодовой 2к26 11 класс'")
+    AMO_DIRECTION_CLASS_10: int = Field(..., description="enum_id для направления 'Полугодовой 2к26 10 класс'")
+    AMO_DIRECTION_CLASS_9: int = Field(..., description="enum_id для направления 'Полугодовой 2к26 ОГЭ' (9 класс)")
+    AMO_DIRECTION_CLASS_8: int = Field(..., description="enum_id для направления 'Математика 8 класс 2к26'")
+    AMO_DIRECTION_CLASS_7: int = Field(..., description="enum_id для направления 'Математика 7 класс 2к26'")
+    
+    # Старые направления (fallback для обратной совместимости)
+    AMO_DIRECTION_OGE: int = Field(..., description="enum_id для направления 'ОГЭ' (fallback)")
+    AMO_DIRECTION_EGE: int = Field(..., description="enum_id для направления 'ЕГЭ' (fallback)")
 
     AMO_PURCHASE_COUNT_1: int = Field(..., description="enum_id для значения '1' в поле 'Купленных курсов'")
     AMO_PURCHASE_COUNT_2: int = Field(..., description="enum_id для значения '2' в поле 'Купленных курсов'")
