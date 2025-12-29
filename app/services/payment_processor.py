@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from app.core.amocrm_client import AmoCRMClient
-from app.core.amocrm_mappings import SUBJECTS_MAPPING, get_direction_enum_id
+from app.core.amocrm_mappings import SUBJECTS_MAPPING, get_direction_enum_id_by_class, get_direction_enum_id_by_course_name
 from app.core.settings import settings
 from app.db.event_logger import EventLogger
 from app.models.payment_webhook import PaymentUTM, PaymentWebhook
@@ -593,18 +593,59 @@ class PaymentProcessor:
         subjects_enum_ids = []
         direction_enum_id = None
 
+        # Приоритет 1: Определяем направление по классу пользователя
+        user_class = payment.course_order.user.user_class
+        if user_class:
+            try:
+                direction_enum_id = get_direction_enum_id_by_class(user_class)
+                if direction_enum_id:
+                    logger.info(f"Direction determined by user class: {user_class} → {direction_enum_id}")
+            except Exception as e:
+                logger.warning(f"Error determining direction by class: {e}")
+
+        # Приоритет 2: Если класса нет, смотрим на название первого платного курса
+        if direction_enum_id is None:
+            try:
+                for item in payment.course_order.course_order_items:
+                    if item.cost > 0:  # Только платные курсы
+                        course_name = item.course.name
+                        direction_enum_id = get_direction_enum_id_by_course_name(course_name)
+                        if direction_enum_id:
+                            logger.info(f"Direction determined by course name: '{course_name}' → {direction_enum_id}")
+                            break
+            except Exception as e:
+                logger.warning(f"Error determining direction by course name: {e}")
+
+        # Приоритет 3 (Fallback): Старая логика по project (ЕГЭ/ОГЭ)
+        if direction_enum_id is None:
+            try:
+                for item in payment.course_order.course_order_items:
+                    project_name = item.course.subject.project
+                    if project_name == "ОГЭ":
+                        direction_enum_id = settings.AMO_DIRECTION_OGE
+                        logger.info(f"Direction determined by project (fallback): 'ОГЭ' → {direction_enum_id}")
+                        break
+                    elif project_name == "ЕГЭ":
+                        direction_enum_id = settings.AMO_DIRECTION_EGE
+                        logger.info(f"Direction determined by project (fallback): 'ЕГЭ' → {direction_enum_id}")
+                        break
+            except Exception as e:
+                logger.warning(f"Error determining direction by project: {e}")
+
+        # Последний fallback: ЕГЭ по умолчанию
+        if direction_enum_id is None:
+            direction_enum_id = settings.AMO_DIRECTION_EGE
+            logger.warning(f"Direction not determined, using ultimate fallback: EGE → {direction_enum_id}")
+
+        # Собираем предметы
         for item in payment.course_order.course_order_items:
             subject_name = item.course.subject.name
-            project_name = item.course.subject.project
 
             subject_enum_id = SUBJECTS_MAPPING.get(subject_name)
             if subject_enum_id:
                 subjects_enum_ids.append(subject_enum_id)
             else:
                 logger.warning(f"Предмет '{subject_name}' не найден в маппинге")
-
-            if direction_enum_id is None:
-                direction_enum_id = get_direction_enum_id(project_name)
 
         subjects_enum_ids = list(set(subjects_enum_ids))
         

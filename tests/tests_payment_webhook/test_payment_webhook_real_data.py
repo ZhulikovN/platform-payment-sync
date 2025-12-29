@@ -202,14 +202,13 @@ def test_process_real_webhook_logic() -> None:
 
         assert len(subjects_enum_ids) >= 2, "Минимум 2 предмета должны быть смаппены"
 
-        from app.core.amocrm_mappings import get_direction_enum_id
+        from app.core.amocrm_mappings import get_direction_enum_id_by_class
 
-        first_item = webhook.course_order.course_order_items[0]
-        project_name = first_item.course.subject.project
-        direction_enum_id = get_direction_enum_id(project_name)
+        user_class = webhook.course_order.user.user_class
+        direction_enum_id = get_direction_enum_id_by_class(user_class)
 
         logger.info(f"\n3. Определение направления:")
-        logger.info(f"   Project: {project_name} → enum_id={direction_enum_id}")
+        logger.info(f"   User class: {user_class} → enum_id={direction_enum_id}")
 
         assert direction_enum_id is not None
 
@@ -353,25 +352,23 @@ def test_webhook_direction_mapping() -> None:
     try:
         webhook = PaymentWebhook(**REAL_WEBHOOK_DATA)
 
-        from app.core.amocrm_mappings import get_direction_enum_id
+        from app.core.amocrm_mappings import get_direction_enum_id_by_class
 
-        first_item = webhook.course_order.course_order_items[0]
-        project_name = first_item.course.subject.project
-
-        direction_enum_id = get_direction_enum_id(project_name)
+        user_class = webhook.course_order.user.user_class
+        direction_enum_id = get_direction_enum_id_by_class(user_class)
 
         logger.info(f"\nНаправление из данных:")
-        logger.info(f"  Project: {project_name}")
+        logger.info(f"  User class: {user_class}")
         logger.info(f"  Enum ID: {direction_enum_id}")
 
         from app.core.settings import settings
 
-        if project_name == "ЕГЭ":
-            assert direction_enum_id == settings.AMO_DIRECTION_EGE
-        elif project_name == "ОГЭ":
-            assert direction_enum_id == settings.AMO_DIRECTION_OGE
+        if user_class == 11:
+            assert direction_enum_id == settings.AMO_DIRECTION_CLASS_11
+        elif user_class == 9:
+            assert direction_enum_id == settings.AMO_DIRECTION_CLASS_9
 
-        logger.info(f"\n✓ Направление определено корректно: {project_name}")
+        logger.info(f"\n✓ Направление определено корректно: класс {user_class}")
         logger.info("=" * 80)
 
     except Exception as e:

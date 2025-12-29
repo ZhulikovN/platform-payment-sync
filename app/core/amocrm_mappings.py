@@ -71,12 +71,6 @@ SUBJECTS_MAPPING: dict[str, int] = {
     "Математика": settings.AMO_LEAD_FIELD_SUBJECT_MATH_7_8,
 }
 
-DIRECTION_MAPPING: dict[str, int] = {
-    "ОГЭ": settings.AMO_DIRECTION_OGE,
-    "ЕГЭ": settings.AMO_DIRECTION_EGE,
-}
-
-
 def get_subject_enum_ids(subject_names: list[str]) -> list[int]:
     """
     Получить список enum_id для предметов.
@@ -95,17 +89,48 @@ def get_subject_enum_ids(subject_names: list[str]) -> list[int]:
     return enum_ids
 
 
-def get_direction_enum_id(direction_name: str) -> int | None:
+def get_direction_enum_id_by_class(user_class: int) -> int | None:
     """
-    Получить enum_id для направления курса.
+    Получить enum_id направления по классу пользователя.
 
     Args:
-        direction_name: Название курса
+        user_class: Класс пользователя (7-11)
 
     Returns:
-        enum_id для AmoCRM или None если курс не найден
+        enum_id для AmoCRM или None если класс не поддерживается
     """
-    return DIRECTION_MAPPING.get(direction_name)
+    class_to_direction = {
+        7: settings.AMO_DIRECTION_CLASS_7,   # "Математика 7 класс 2к26"
+        8: settings.AMO_DIRECTION_CLASS_8,   # "Математика 8 класс 2к26"
+        9: settings.AMO_DIRECTION_CLASS_9,   # "Полугодовой 2к26 ОГЭ"
+        10: settings.AMO_DIRECTION_CLASS_10, # "Полугодовой 2к26 10 класс"
+        11: settings.AMO_DIRECTION_CLASS_11, # "Полугодовой 2к26 11 класс"
+    }
+    return class_to_direction.get(user_class)
+
+
+def get_direction_enum_id_by_course_name(course_name: str) -> int | None:
+    """
+    Получить enum_id направления по названию курса.
+
+    Args:
+        course_name: Название курса
+
+    Returns:
+        enum_id для AmoCRM или None если направление не определено
+    """
+    if "11 класс" in course_name:
+        return settings.AMO_DIRECTION_CLASS_11
+    elif "10 класс" in course_name:
+        return settings.AMO_DIRECTION_CLASS_10
+    elif "9 класс" in course_name or "ОГЭ" in course_name:
+        return settings.AMO_DIRECTION_CLASS_9
+    elif "8 класс" in course_name:
+        return settings.AMO_DIRECTION_CLASS_8
+    elif "7 класс" in course_name:
+        return settings.AMO_DIRECTION_CLASS_7
+    return None
+
 
 def _get_class_enum_id(user_class: int) -> int | None:
     """

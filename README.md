@@ -145,9 +145,12 @@ FastAPI endpoint для приема webhook от платформы.
         - "Математика" → enum_id из настроек
         - "Обществознание" → enum_id из настроек
         - и т.д. (см. `amocrm_mappings.py`)
-    - **Направление курса** (`AMO_LEAD_FIELD_DIRECTION`): маппинг через `get_direction_enum_id()`
-        - "ЕГЭ" → `AMO_DIRECTION_EGE`
-        - "ОГЭ" → `AMO_DIRECTION_OGE`
+    - **Направление курса** (`AMO_LEAD_FIELD_DIRECTION`): маппинг через класс пользователя
+        - Класс 11 → `AMO_DIRECTION_CLASS_11`
+        - Класс 10 → `AMO_DIRECTION_CLASS_10`
+        - Класс 9 (ОГЭ) → `AMO_DIRECTION_CLASS_9`
+        - Класс 8 → `AMO_DIRECTION_CLASS_8`
+        - Класс 7 → `AMO_DIRECTION_CLASS_7`
     - **Сумма последней оплаты** (`AMO_LEAD_FIELD_LAST_PAYMENT_AMOUNT`): сумма всех курсов в заказе
     - **Общий оплаченный итог** (`AMO_LEAD_FIELD_TOTAL_PAID`): инкрементально (старое значение + новая сумма)
     - **Счетчик покупок** (`AMO_LEAD_FIELD_PURCHASE_COUNT`): инкрементально (+1)
@@ -248,7 +251,8 @@ Payment ID: pay_67890
 **Функции:**
 
 - `get_subject_enum_ids(subject_names)` - получить enum_id для списка предметов
-- `get_direction_enum_id(direction_name)` - получить enum_id для направления
+- `get_direction_enum_id_by_class(user_class)` - получить enum_id направления по классу пользователя
+- `get_direction_enum_id_by_course_name(course_name)` - получить enum_id направления по названию курса
 
 ### `event_logger.py`
 
