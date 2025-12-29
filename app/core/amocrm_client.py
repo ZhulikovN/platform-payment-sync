@@ -608,6 +608,7 @@ class AmoCRMClient:
         domain: str | None = None,
         user_class: int | None = None,
         is_parent: bool | None = None,
+        promo_code: str | None = None,
     ) -> int:
         """
         Создать новую сделку в AmoCRM с UTM параметрами.
@@ -703,6 +704,13 @@ class AmoCRMClient:
                 {"field_id": settings.AMO_LEAD_FIELD_ROLE, "values": [{"enum_id": role_enum_id}]}
             )
 
+        if promo_code:
+            promo_code_str = str(promo_code)
+            logger.info(f"Adding promo code: {promo_code_str}")
+            lead_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_PROMO_CODE, "values": [{"value": promo_code_str}]}
+            )
+
         try:
             response = await self._make_request("POST", "/api/v4/leads", data=[lead_data])
 
@@ -735,6 +743,7 @@ class AmoCRMClient:
         purchased_subjects_count: int | None = None,
         user_class: int | None = None,
         is_parent: bool | None = None,
+        promo_code: str | None = None,
     ) -> None:
         """
         Обновить кастомные поля сделки и бюджет одним запросом.
@@ -891,6 +900,13 @@ class AmoCRMClient:
                 logger.info(f"Updating role: {role_name} (is_parent={is_parent})")
                 update_data["custom_fields_values"].append(
                     {"field_id": settings.AMO_LEAD_FIELD_ROLE, "values": [{"enum_id": role_enum_id}]}
+                )
+
+            if promo_code:
+                promo_code_str = str(promo_code)
+                logger.info(f"Updating promo code: {promo_code_str}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_PROMO_CODE, "values": [{"value": promo_code_str}]}
                 )
 
             if status_id is not None:
