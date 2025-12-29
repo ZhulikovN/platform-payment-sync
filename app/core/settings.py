@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     AMO_LEAD_FIELD_PAYMENT_STATUS: int = Field(..., description="ID поля 'Статус оплаты' в сделке")
     AMO_LEAD_FIELD_LAST_PAYMENT_DATE: int = Field(..., description="ID поля 'Дата/время последней оплаты' в сделке")
     AMO_LEAD_FIELD_PAYMENT_ID: int = Field(..., description="ID поля 'Payment ID' в сделке")
+    AMO_LEAD_FIELD_PROMO_CODE: int = Field(..., description="ID поля 'Промокод' в сделке")
     
     # Поля пользователя
     AMO_LEAD_FIELD_ROLE: int = Field(..., description="ID поля 'Роль' (Ученик/Родитель) в сделке")
