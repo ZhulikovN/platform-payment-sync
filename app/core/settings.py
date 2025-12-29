@@ -74,6 +74,14 @@ class Settings(BaseSettings):
     AMO_LEAD_FIELD_PAYMENT_STATUS: int = Field(..., description="ID поля 'Статус оплаты' в сделке")
     AMO_LEAD_FIELD_LAST_PAYMENT_DATE: int = Field(..., description="ID поля 'Дата/время последней оплаты' в сделке")
     AMO_LEAD_FIELD_PAYMENT_ID: int = Field(..., description="ID поля 'Payment ID' в сделке")
+    
+    # Поля пользователя
+    AMO_LEAD_FIELD_ROLE: int = Field(..., description="ID поля 'Роль' (Ученик/Родитель) в сделке")
+    AMO_LEAD_FIELD_CLASS: int = Field(..., description="ID поля 'Класс' в сделке")
+    
+    # Enum ID для роли (Ученик/Родитель)
+    AMO_LEAD_FIELD_ROLE_PARENT: int = Field(..., description="enum_id для значения 'Родитель'")
+    AMO_LEAD_FIELD_ROLE_STUDENT: int = Field(..., description="enum_id для значения 'Ученик'")
 
     # Воронки для автоплаты (определяются по UTM)
     AMO_PIPELINE_SITE: int = Field(..., description="ID воронки 'Сайт'")
