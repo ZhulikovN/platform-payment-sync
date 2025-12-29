@@ -106,3 +106,22 @@ def get_direction_enum_id(direction_name: str) -> int | None:
         enum_id для AmoCRM или None если курс не найден
     """
     return DIRECTION_MAPPING.get(direction_name)
+
+def _get_class_enum_id(user_class: int) -> int | None:
+    """
+    Получить enum_id для класса пользователя.
+
+    Args:
+        user_class: Класс пользователя (7, 8, 9, 10, 11)
+
+    Returns:
+        enum_id для AmoCRM или None если класс не поддерживается
+    """
+    mapping = {
+        7: settings.AMO_LEAD_FIELD_CLASS_7,
+        8: settings.AMO_LEAD_FIELD_CLASS_8,
+        9: settings.AMO_LEAD_FIELD_CLASS_9,
+        10: settings.AMO_LEAD_FIELD_CLASS_10,
+        11: settings.AMO_LEAD_FIELD_CLASS_11,
+    }
+    return mapping.get(user_class)
