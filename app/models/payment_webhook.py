@@ -33,8 +33,11 @@ class PaymentUser(BaseModel):
     last_name: str = Field(default="", description="Фамилия пользователя")
     phone: str = Field(..., description="Телефон пользователя")
     email: str = Field(..., description="Email пользователя")
+    user_class: int | None = Field(default=None, alias="class", description="Класс пользователя (7, 8, 9, 10, 11)")
     telegram_tag: str = Field(default="", description="Username в Telegram (без @)")
     telegram_id: str = Field(default="", description="Telegram ID пользователя")
+
+    model_config = {"populate_by_name": True}
 
 
 class PaymentUTM(BaseModel):

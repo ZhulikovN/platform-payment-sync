@@ -97,6 +97,8 @@ async def receive_payment_webhook(
     logger.debug(f"Request body size: {len(body)} bytes")
     logger.debug(f"Request body preview: {body[:200].decode('utf-8', errors='ignore')}...")
 
+    logger.info(f"FULL REQUEST BODY (RAW JSON):\n{body.decode('utf-8')}")
+
     if not x_webhook_secret:
         logger.error("Missing X-WEBHOOK-SECRET header")
         logger.error("Available headers: %s", dict(request.headers))

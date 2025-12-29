@@ -51,28 +51,40 @@ class PaymentProcessor:
         utm_source = (payment.course_order.utm.source or "").lower()
         return utm_source == "op"
 
-    def determine_pipeline_and_status(self, utm: PaymentUTM) -> tuple[int, int]:
+    def determine_pipeline_and_status(self, utm: PaymentUTM, user_class: int | None = None) -> tuple[int, int]:
         """
-        Определить воронку и этап на основе UTM меток.
+        Определить воронку и этап на основе класса пользователя и UTM меток.
 
         ЛОГИКА:
-        ВСЕ автооплаты идут в этап "Автооплаты ООО", но в разные воронки:
-        1. ПАРТНЕРЫ - если utm_source совпал с правилами
-        2. Сайт Яндекс - если utm_medium совпал с правилами
-        3. Сайт - по умолчанию (если ничего не совпало)
+        1. ПРИОРИТЕТ: Если класс 7 или 8 → воронка "7/8 класс"
+        2. ВСЕ остальные автооплаты идут в этап "Автооплаты ООО", но в разные воронки:
+           - ПАРТНЕРЫ - если utm_source совпал с правилами
+           - Сайт Яндекс - если utm_medium совпал с правилами
+           - Сайт - по умолчанию (если ничего не совпало)
 
         Args:
             utm: Объект PaymentUTM с UTM метками из payment.course_order.utm
+            user_class: Класс пользователя (7, 8, 9, 10, 11 и т.д.)
 
         Returns:
             Кортеж (pipeline_id, status_id):
             - pipeline_id: ID воронки
             - status_id: ID этапа "Автооплаты ООО" для соответствующей воронки
         """
+        if user_class in [7, 8]:
+            logger.info(
+                f"Класс {user_class} обнаружен → воронка '7/8 класс' "
+                f"(ID={settings.PIPELINE_7_8_CLASS}) → Автооплаты ООО (ID={settings.PIPELINE_7_8_CLASS_AUTOPAY})"
+            )
+            return (
+                settings.PIPELINE_7_8_CLASS,
+                settings.PIPELINE_7_8_CLASS_AUTOPAY,
+            )
+
         utm_source = (utm.source or "").lower()
         utm_medium = (utm.medium or "").lower()
 
-        logger.info(f"Определение воронки: utm_source='{utm_source}', utm_medium='{utm_medium}'")
+        logger.info(f"Определение воронки: user_class={user_class}, utm_source='{utm_source}', utm_medium='{utm_medium}'")
 
         partner_sources = settings.PARTNER_SOURCES.split(",")
         for partner in partner_sources:
@@ -252,7 +264,8 @@ class PaymentProcessor:
             logger.info("=" * 80)
 
             utm = payment.course_order.utm
-            pipeline_id, status_id = self.determine_pipeline_and_status(utm)
+            user_class = payment.course_order.user.user_class
+            pipeline_id, status_id = self.determine_pipeline_and_status(utm, user_class)
 
             logger.info(f"Целевая воронка: pipeline_id={pipeline_id}, status_id={status_id}")
 
