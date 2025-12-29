@@ -341,6 +341,7 @@ class PaymentProcessor:
             domain = payment.course_order.domain or None
             user_class_value = payment.course_order.user.user_class
             is_parent_value = payment.course_order.is_parent
+            promo_code_value = payment.course_order.code if payment.course_order.code else None
 
             lead_id = await self.client.create_lead(
                 name=lead_name,
@@ -357,6 +358,7 @@ class PaymentProcessor:
                 domain=domain,
                 user_class=user_class_value,
                 is_parent=is_parent_value,
+                promo_code=promo_code_value,
             )
             logger.info(f"Новая сделка создана: ID={lead_id}")
 
@@ -540,6 +542,7 @@ class PaymentProcessor:
         domain = payment.course_order.domain or None
         user_class_value = payment.course_order.user.user_class
         is_parent_value = payment.course_order.is_parent
+        promo_code_value = payment.course_order.code if payment.course_order.code else None
 
         lead_id = await self.client.create_lead(
             name=lead_name,
@@ -556,6 +559,7 @@ class PaymentProcessor:
             domain=domain,
             user_class=user_class_value,
             is_parent=is_parent_value,
+            promo_code=promo_code_value,
         )
 
         logger.info(f"✓ Сделка создана: ID={lead_id}")
@@ -631,6 +635,7 @@ class PaymentProcessor:
         domain = payment.course_order.domain or None
         user_class_value = payment.course_order.user.user_class
         is_parent_value = payment.course_order.is_parent
+        promo_code_value = payment.course_order.code if payment.course_order.code else None
 
         await self.client.update_lead_fields(
             lead_id=lead_id,
@@ -652,6 +657,7 @@ class PaymentProcessor:
             purchased_subjects_count=purchased_subjects_count,
             user_class=user_class_value,
             is_parent=is_parent_value,
+            promo_code=promo_code_value,
         )
 
         if status_id:
