@@ -325,6 +325,7 @@ class PaymentProcessor:
             utm_content = utm.content or None
             utm_term = utm.term or None
             ym_uid = utm.ym or None
+            domain = payment.course_order.domain or None
 
             lead_id = await self.client.create_lead(
                 name=lead_name,
@@ -338,6 +339,7 @@ class PaymentProcessor:
                 utm_content=utm_content,
                 utm_term=utm_term,
                 ym_uid=ym_uid,
+                domain=domain,
             )
             logger.info(f"Новая сделка создана: ID={lead_id}")
 
@@ -518,6 +520,7 @@ class PaymentProcessor:
         utm_content = utm.content or None
         utm_term = utm.term or None
         ym_uid = utm.ym or None
+        domain = payment.course_order.domain or None
 
         lead_id = await self.client.create_lead(
             name=lead_name,
@@ -531,6 +534,7 @@ class PaymentProcessor:
             utm_content=utm_content,
             utm_term=utm_term,
             ym_uid=ym_uid,
+            domain=domain,
         )
 
         logger.info(f"✓ Сделка создана: ID={lead_id}")
@@ -601,6 +605,8 @@ class PaymentProcessor:
             utm_term = utm.term or None
             ym_uid = utm.ym or None
 
+        domain = payment.course_order.domain or None
+
         await self.client.update_lead_fields(
             lead_id=lead_id,
             subjects=subjects_enum_ids if subjects_enum_ids else None,
@@ -609,7 +615,7 @@ class PaymentProcessor:
             payment_status=payment_status,
             last_payment_date=payment_date,
             payment_id=payment_id,
-            status_id=status_id,  # Может быть None - тогда статус не меняется
+            status_id=status_id,
             total_paid=amount,
             utm_source=utm_source,
             utm_medium=utm_medium,
@@ -617,6 +623,7 @@ class PaymentProcessor:
             utm_content=utm_content,
             utm_term=utm_term,
             ym_uid=ym_uid,
+            domain=domain,
         )
 
         if status_id:

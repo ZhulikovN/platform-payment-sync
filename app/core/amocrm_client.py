@@ -605,6 +605,7 @@ class AmoCRMClient:
         utm_content: str | None = None,
         utm_term: str | None = None,
         ym_uid: str | None = None,
+        domain: str | None = None,
     ) -> int:
         """
         Создать новую сделку в AmoCRM с UTM параметрами.
@@ -676,6 +677,12 @@ class AmoCRMClient:
                 {"field_id": settings.AMO_LEAD_FIELD_YM_UID, "values": [{"value": ym_uid}]}
             )
 
+        if domain:
+            logger.info(f"Adding referrer (domain): {domain}")
+            lead_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_REFERRER, "values": [{"value": domain}]}
+            )
+
         try:
             response = await self._make_request("POST", "/api/v4/leads", data=[lead_data])
 
@@ -704,6 +711,7 @@ class AmoCRMClient:
         utm_content: str | None = None,
         utm_term: str | None = None,
         ym_uid: str | None = None,
+        domain: str | None = None,
     ) -> None:
         """
         Обновить кастомные поля сделки и бюджет одним запросом.
@@ -835,6 +843,12 @@ class AmoCRMClient:
                 logger.info(f"Updating Yandex Metrika UID: {ym_uid}")
                 update_data["custom_fields_values"].append(
                     {"field_id": settings.AMO_LEAD_FIELD_YM_UID, "values": [{"value": ym_uid}]}
+                )
+
+            if domain:
+                logger.info(f"Updating referrer (domain): {domain}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_REFERRER, "values": [{"value": domain}]}
                 )
 
             if status_id is not None:

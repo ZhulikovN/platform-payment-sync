@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     AMO_LEAD_FIELD_UTM_CONTENT: int = Field(..., description="ID поля 'utm_content' в сделке")
     AMO_LEAD_FIELD_UTM_TERM: int = Field(..., description="ID поля 'utm_term' в сделке")
     AMO_LEAD_FIELD_YM_UID: int = Field(..., description="ID поля '_ym_uid' в сделке")
+    AMO_LEAD_FIELD_REFERRER: int = Field(..., description="ID поля 'referrer' (domain) в сделке")
 
     # Поля оплаты
     AMO_LEAD_FIELD_LAST_PAYMENT_AMOUNT: int = Field(..., description="ID поля 'Сумма последней оплаты' в сделке")
