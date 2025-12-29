@@ -82,6 +82,13 @@ class Settings(BaseSettings):
     # Enum ID для роли (Ученик/Родитель)
     AMO_LEAD_FIELD_ROLE_PARENT: int = Field(..., description="enum_id для значения 'Родитель'")
     AMO_LEAD_FIELD_ROLE_STUDENT: int = Field(..., description="enum_id для значения 'Ученик'")
+    
+    # Enum ID для класса (7, 8, 9, 10, 11)
+    AMO_LEAD_FIELD_CLASS_7: int = Field(..., description="enum_id для класса 7")
+    AMO_LEAD_FIELD_CLASS_8: int = Field(..., description="enum_id для класса 8")
+    AMO_LEAD_FIELD_CLASS_9: int = Field(..., description="enum_id для класса 9")
+    AMO_LEAD_FIELD_CLASS_10: int = Field(..., description="enum_id для класса 10")
+    AMO_LEAD_FIELD_CLASS_11: int = Field(..., description="enum_id для класса 11")
 
     # Воронки для автоплаты (определяются по UTM)
     AMO_PIPELINE_SITE: int = Field(..., description="ID воронки 'Сайт'")
