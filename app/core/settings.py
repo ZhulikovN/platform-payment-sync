@@ -67,12 +67,29 @@ class Settings(BaseSettings):
     AMO_LEAD_FIELD_UTM_CONTENT: int = Field(..., description="ID поля 'utm_content' в сделке")
     AMO_LEAD_FIELD_UTM_TERM: int = Field(..., description="ID поля 'utm_term' в сделке")
     AMO_LEAD_FIELD_YM_UID: int = Field(..., description="ID поля '_ym_uid' в сделке")
+    AMO_LEAD_FIELD_REFERRER: int = Field(..., description="ID поля 'referrer' (domain) в сделке")
 
     # Поля оплаты
     AMO_LEAD_FIELD_LAST_PAYMENT_AMOUNT: int = Field(..., description="ID поля 'Сумма последней оплаты' в сделке")
     AMO_LEAD_FIELD_PAYMENT_STATUS: int = Field(..., description="ID поля 'Статус оплаты' в сделке")
     AMO_LEAD_FIELD_LAST_PAYMENT_DATE: int = Field(..., description="ID поля 'Дата/время последней оплаты' в сделке")
     AMO_LEAD_FIELD_PAYMENT_ID: int = Field(..., description="ID поля 'Payment ID' в сделке")
+    AMO_LEAD_FIELD_PROMO_CODE: int = Field(..., description="ID поля 'Промокод' в сделке")
+    
+    # Поля пользователя
+    AMO_LEAD_FIELD_ROLE: int = Field(..., description="ID поля 'Роль' (Ученик/Родитель) в сделке")
+    AMO_LEAD_FIELD_CLASS: int = Field(..., description="ID поля 'Класс' в сделке")
+    
+    # Enum ID для роли (Ученик/Родитель)
+    AMO_LEAD_FIELD_ROLE_PARENT: int = Field(..., description="enum_id для значения 'Родитель'")
+    AMO_LEAD_FIELD_ROLE_STUDENT: int = Field(..., description="enum_id для значения 'Ученик'")
+    
+    # Enum ID для класса (7, 8, 9, 10, 11)
+    AMO_LEAD_FIELD_CLASS_7: int = Field(..., description="enum_id для класса 7")
+    AMO_LEAD_FIELD_CLASS_8: int = Field(..., description="enum_id для класса 8")
+    AMO_LEAD_FIELD_CLASS_9: int = Field(..., description="enum_id для класса 9")
+    AMO_LEAD_FIELD_CLASS_10: int = Field(..., description="enum_id для класса 10")
+    AMO_LEAD_FIELD_CLASS_11: int = Field(..., description="enum_id для класса 11")
 
     # Воронки для автоплаты (определяются по UTM)
     AMO_PIPELINE_SITE: int = Field(..., description="ID воронки 'Сайт'")

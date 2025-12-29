@@ -15,7 +15,7 @@ from tenacity import (
 from app.core.amocrm_mappings import (
     ALLOWED_PIPELINES,
     EXCLUDED_STATUSES,
-    normalize_phone,
+    normalize_phone, _get_class_enum_id,
 )
 from app.core.settings import settings
 
@@ -605,6 +605,10 @@ class AmoCRMClient:
         utm_content: str | None = None,
         utm_term: str | None = None,
         ym_uid: str | None = None,
+        domain: str | None = None,
+        user_class: int | None = None,
+        is_parent: bool | None = None,
+        promo_code: str | None = None,
     ) -> int:
         """
         Создать новую сделку в AmoCRM с UTM параметрами.
@@ -676,6 +680,37 @@ class AmoCRMClient:
                 {"field_id": settings.AMO_LEAD_FIELD_YM_UID, "values": [{"value": ym_uid}]}
             )
 
+        if domain:
+            logger.info(f"Adding referrer (domain): {domain}")
+            lead_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_REFERRER, "values": [{"value": domain}]}
+            )
+
+        if user_class is not None:
+            class_enum_id = _get_class_enum_id(user_class)
+            if class_enum_id:
+                logger.info(f"Adding class: {user_class} (enum_id={class_enum_id})")
+                lead_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_CLASS, "values": [{"enum_id": class_enum_id}]}
+                )
+            else:
+                logger.warning(f"Class {user_class} not supported (only 7-11), skipping")
+
+        if is_parent is not None:
+            role_enum_id = settings.AMO_LEAD_FIELD_ROLE_PARENT if is_parent else settings.AMO_LEAD_FIELD_ROLE_STUDENT
+            role_name = "Родитель" if is_parent else "Ученик"
+            logger.info(f"Adding role: {role_name} (is_parent={is_parent})")
+            lead_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_ROLE, "values": [{"enum_id": role_enum_id}]}
+            )
+
+        if promo_code:
+            promo_code_str = str(promo_code)
+            logger.info(f"Adding promo code: {promo_code_str}")
+            lead_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_PROMO_CODE, "values": [{"value": promo_code_str}]}
+            )
+
         try:
             response = await self._make_request("POST", "/api/v4/leads", data=[lead_data])
 
@@ -704,6 +739,11 @@ class AmoCRMClient:
         utm_content: str | None = None,
         utm_term: str | None = None,
         ym_uid: str | None = None,
+        domain: str | None = None,
+        purchased_subjects_count: int | None = None,
+        user_class: int | None = None,
+        is_parent: bool | None = None,
+        promo_code: str | None = None,
     ) -> None:
         """
         Обновить кастомные поля сделки и бюджет одним запросом.
@@ -756,8 +796,9 @@ class AmoCRMClient:
                     {"field_id": settings.AMO_LEAD_FIELD_LAST_PAYMENT_AMOUNT, "values": [{"value": int(last_payment_amount)}]}
                 )
 
-            new_purchase_count = current_purchase_count + 1
-            logger.info(f"Updating purchase count: {current_purchase_count} + 1 = {new_purchase_count}")
+            subjects_to_add = purchased_subjects_count if purchased_subjects_count else 1
+            new_purchase_count = current_purchase_count + subjects_to_add
+            logger.info(f"Updating purchase count: {current_purchase_count} + {subjects_to_add} = {new_purchase_count}")
 
             purchase_count_enum_id = self._get_purchase_count_enum_id(new_purchase_count)
             if purchase_count_enum_id:
@@ -835,6 +876,37 @@ class AmoCRMClient:
                 logger.info(f"Updating Yandex Metrika UID: {ym_uid}")
                 update_data["custom_fields_values"].append(
                     {"field_id": settings.AMO_LEAD_FIELD_YM_UID, "values": [{"value": ym_uid}]}
+                )
+
+            if domain:
+                logger.info(f"Updating referrer (domain): {domain}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_REFERRER, "values": [{"value": domain}]}
+                )
+
+            if user_class is not None:
+                class_enum_id = _get_class_enum_id(user_class)
+                if class_enum_id:
+                    logger.info(f"Updating class: {user_class} (enum_id={class_enum_id})")
+                    update_data["custom_fields_values"].append(
+                        {"field_id": settings.AMO_LEAD_FIELD_CLASS, "values": [{"enum_id": class_enum_id}]}
+                    )
+                else:
+                    logger.warning(f"Class {user_class} not supported (only 7-11), skipping")
+
+            if is_parent is not None:
+                role_enum_id = settings.AMO_LEAD_FIELD_ROLE_PARENT if is_parent else settings.AMO_LEAD_FIELD_ROLE_STUDENT
+                role_name = "Родитель" if is_parent else "Ученик"
+                logger.info(f"Updating role: {role_name} (is_parent={is_parent})")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_ROLE, "values": [{"enum_id": role_enum_id}]}
+                )
+
+            if promo_code:
+                promo_code_str = str(promo_code)
+                logger.info(f"Updating promo code: {promo_code_str}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_PROMO_CODE, "values": [{"value": promo_code_str}]}
                 )
 
             if status_id is not None:

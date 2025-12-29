@@ -1,11 +1,14 @@
 """Webhook endpoint для приема данных об оплатах с платформы."""
 
+import asyncio
+from asyncio import Semaphore
 import hashlib
 import hmac
 import json
 import logging
+import time
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
 from app.core.settings import settings
@@ -93,6 +96,8 @@ async def receive_payment_webhook(
 
     logger.debug(f"Request body size: {len(body)} bytes")
     logger.debug(f"Request body preview: {body[:200].decode('utf-8', errors='ignore')}...")
+
+    logger.info(f"FULL REQUEST BODY (RAW JSON):\n{body.decode('utf-8')}")
 
     if not x_webhook_secret:
         logger.error("Missing X-WEBHOOK-SECRET header")
@@ -212,6 +217,267 @@ async def receive_payment_webhook(
     )
 
 
+async def process_payment_batch_parallel(
+    payments: list[PaymentWebhook],
+    processor: PaymentProcessor,
+) -> dict:
+    """
+    Параллельная обработка батча оплат с контролем rate limit.
+
+    Использует asyncio.gather для параллельной обработки с ограничением
+    через Semaphore для соблюдения rate limit AmoCRM (7 запросов/сек).
+
+    Каждая оплата делает ~6 API запросов (матчинг + обновление).
+    Semaphore(1) = 1 оплата одновременно = ~6 запросов/сек (безопасно).
+
+    Для 1000 оплат время обработки: ~60-70 минут.
+
+    Args:
+        payments: Список оплат для обработки
+        processor: PaymentProcessor для обработки
+
+    Returns:
+        Результаты обработки с детальной статистикой
+    """
+    logger.info("=" * 80)
+    logger.info(f"Starting PARALLEL batch processing: {len(payments)} payments")
+    logger.info(f"Rate limit: 1 concurrent task (AmoCRM safe mode: ~6 req/sec)")
+    logger.info("=" * 80)
+
+    if not payments:
+        logger.warning("Empty payments list received")
+        return {
+            "status": "success",
+            "message": "No payments to process",
+            "total": 0,
+            "succeeded": 0,
+            "failed": 0,
+            "duplicates": 0,
+            "skipped": 0,
+            "elapsed_seconds": 0,
+            "results": [],
+        }
+
+    semaphore = Semaphore(2)
+
+    start_time = time.time()
+
+    async def process_one(payment: PaymentWebhook, idx: int) -> dict:
+        """
+        Обработать одну оплату с ограничением через semaphore.
+
+        Args:
+            payment: Данные об оплате
+            idx: Индекс элемента (для логирования)
+
+        Returns:
+            Результат обработки
+        """
+        async with semaphore:
+            payment_id = payment.payment_id or f"batch_{idx}"
+
+            try:
+                logger.info(
+                    f"[{idx}/{len(payments)}] Processing payment_id={payment_id}, "
+                    f"amount={payment.total_cost}, user={payment.course_order.user.phone}"
+                )
+
+                result = await processor.process_payment(payment)
+
+                if result.status == "success":
+                    logger.info(
+                        f"[{idx}/{len(payments)}] ✓ SUCCESS: {payment_id} -> "
+                        f"contact {result.contact_id}, lead {result.lead_id}"
+                    )
+                    return {
+                        "payment_id": payment_id,
+                        "status": "success",
+                        "contact_id": result.contact_id,
+                        "lead_id": result.lead_id,
+                    }
+
+                elif result.status == "duplicate":
+                    logger.info(f"[{idx}/{len(payments)}] ⊗ DUPLICATE: {payment_id}")
+                    return {
+                        "payment_id": payment_id,
+                        "status": "duplicate",
+                        "message": result.message,
+                    }
+
+                elif result.status == "skipped":
+                    logger.info(f"[{idx}/{len(payments)}] ⊘ SKIPPED: {payment_id} - {result.message}")
+                    return {
+                        "payment_id": payment_id,
+                        "status": "skipped",
+                        "message": result.message,
+                    }
+
+                else:
+                    logger.warning(f"[{idx}/{len(payments)}] ⚠ {result.status.upper()}: {payment_id} - {result.message}")
+                    return {
+                        "payment_id": payment_id,
+                        "status": result.status,
+                        "message": result.message,
+                    }
+
+            except Exception as e:
+                logger.error(
+                    f"[{idx}/{len(payments)}] ✗ ERROR processing {payment_id}: {e}",
+                    exc_info=True,
+                )
+                return {
+                    "payment_id": payment_id,
+                    "status": "error",
+                    "error": str(e),
+                }
+
+    logger.info("Starting parallel execution...")
+
+    all_results = await asyncio.gather(
+        *[process_one(payment, idx) for idx, payment in enumerate(payments, start=1)],
+        return_exceptions=True,
+    )
+
+    succeeded = 0
+    failed = 0
+    duplicates = 0
+    skipped = 0
+    results = []
+
+    for result in all_results:
+        if isinstance(result, dict):
+            results.append(result)
+            result_status = result.get("status")
+            if result_status == "success":
+                succeeded += 1
+            elif result_status == "duplicate":
+                duplicates += 1
+            elif result_status == "skipped":
+                skipped += 1
+            elif result_status in ("error", "contact_not_found", "lead_not_found"):
+                failed += 1
+        elif isinstance(result, Exception):
+            logger.error(f"Unhandled exception in task: {result}")
+            failed += 1
+            results.append({"payment_id": None, "status": "error", "error": str(result)})
+
+    elapsed_time = time.time() - start_time
+    items_per_sec = len(payments) / elapsed_time if elapsed_time > 0 else 0
+
+    logger.info("=" * 80)
+    logger.info("PARALLEL batch processing COMPLETED")
+    logger.info(f"Total time: {elapsed_time:.1f} seconds ({elapsed_time/60:.1f} minutes)")
+    logger.info(f"Speed: {items_per_sec:.2f} payments/sec")
+    logger.info(f"Results: {succeeded} succeeded, {duplicates} duplicates, {skipped} skipped, {failed} failed")
+    logger.info("=" * 80)
+
+    return {
+        "status": "completed",
+        "message": f"Processed {len(payments)} payments in {elapsed_time:.1f}s",
+        "total": len(payments),
+        "succeeded": succeeded,
+        "failed": failed,
+        "duplicates": duplicates,
+        "skipped": skipped,
+        "elapsed_seconds": int(elapsed_time),
+        "elapsed_minutes": round(elapsed_time / 60, 1),
+        "items_per_second": round(items_per_sec, 2),
+        "results": results,
+    }
+
+
+@router.post("/payment-batch")
+async def receive_payment_batch(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    processor: PaymentProcessor = Depends(get_payment_processor),
+) -> JSONResponse:
+    """
+    Batch endpoint для массовой обработки оплат (до 1000 за раз).
+
+    Принимает массив оплат, обрабатывает параллельно в фоновом режиме
+    с контролем rate limit для AmoCRM API.
+
+    Обработка выполняется асинхронно - endpoint сразу возвращает 202 Accepted.
+    Результаты можно отслеживать через логи.
+
+    БЕЗ HMAC проверки - для внутреннего использования (OP выгрузки).
+
+    Args:
+        request: FastAPI Request для получения сырого тела
+        background_tasks: FastAPI background tasks для фоновой обработки
+        processor: PaymentProcessor для обработки оплат (dependency injection)
+
+    Returns:
+        JSONResponse с подтверждением принятия задачи
+
+    Raises:
+        HTTPException: 400 если данные некорректные или батч > 1000
+    """
+    logger.info("=" * 80)
+    logger.info("Received BATCH webhook request (no HMAC)")
+    logger.info("=" * 80)
+
+    body = await request.body()
+
+    logger.debug(f"Request body size: {len(body)} bytes")
+
+    try:
+        payload_list = json.loads(body.decode("utf-8"))
+
+        if not isinstance(payload_list, list):
+            logger.error("Expected array of payments, got single object")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Expected array of payments. Use /webhook/payment for single payment.",
+            )
+
+        if len(payload_list) > 1000:
+            logger.error(f"Batch size {len(payload_list)} exceeds limit of 1000")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Batch size exceeds limit of 1000 payments",
+            )
+
+        payments = [PaymentWebhook(**item) for item in payload_list]
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid JSON: {str(e)}",
+        ) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Validation error: {str(e)}",
+        ) from e
+
+    logger.info("=" * 80)
+    logger.info(f"Batch validation successful: {len(payments)} payments")
+    logger.info("=" * 80)
+
+    background_tasks.add_task(process_payment_batch_parallel, payments, processor)
+
+    estimated_minutes = len(payments) * 4 / 60
+
+    logger.info(f"Task accepted for background processing. Estimated time: {estimated_minutes:.1f} minutes")
+
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content={
+            "status": "accepted",
+            "message": f"Processing {len(payments)} payments in background",
+            "total": len(payments),
+            "estimated_time_minutes": round(estimated_minutes, 1),
+            "note": "Processing is asynchronous. Check logs for results.",
+        },
+    )
+
+
 @router.get("/health")
 async def health_check() -> JSONResponse:
     """
@@ -220,14 +486,16 @@ async def health_check() -> JSONResponse:
     Returns:
         JSONResponse со статусом сервиса
     """
-    # TODO: Добавить проверку доступности amoCRM API
-    # TODO: Добавить проверку доступности БД SQLite
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
             "status": "healthy",
             "service": "platform-payment-sync",
-            "version": "6.0.0",
+            "version": "7.0.0",
+            "endpoints": {
+                "single": "/webhook/payment (with HMAC)",
+                "batch": "/webhook/payment-batch (no HMAC, up to 1000)",
+            },
         },
     )

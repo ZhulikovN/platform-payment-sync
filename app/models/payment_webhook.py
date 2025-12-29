@@ -33,8 +33,11 @@ class PaymentUser(BaseModel):
     last_name: str = Field(default="", description="Фамилия пользователя")
     phone: str = Field(..., description="Телефон пользователя")
     email: str = Field(..., description="Email пользователя")
+    user_class: int | None = Field(default=None, alias="class", description="Класс пользователя (7, 8, 9, 10, 11)")
     telegram_tag: str = Field(default="", description="Username в Telegram (без @)")
     telegram_id: str = Field(default="", description="Telegram ID пользователя")
+
+    model_config = {"populate_by_name": True}
 
 
 class PaymentUTM(BaseModel):
@@ -55,14 +58,15 @@ class CourseOrder(BaseModel):
     amount: int = Field(..., description="Сумма заказа", ge=0)
     created_at: str = Field(..., description="Дата и время создания заказа")
     updated_at: str = Field(..., description="Дата и время последнего обновления заказа")
-    code: str = Field(default="", description="Промокод")
+    code: str | int | None = Field(default="", description="Промокод (может быть строкой, числом или null)")
     course_order_items: list[CourseOrderItem] = Field(..., description="Список курсов в заказе")
     user: PaymentUser = Field(..., description="Данные пользователя")
     utm: PaymentUTM = Field(..., description="UTM метки")
-    domain: str = Field(..., description="Домен платформы")
+    domain: str = Field(default="", description="Домен платформы")
     payment_id: str | None = Field(None, description="Уникальный ID оплаты (для защиты от дубликатов)")
     payment_method: str | None = Field(None, description="Метод оплаты (SBP, карта и т.д.)")
     currency: str = Field(default="RUB", description="Валюта оплаты")
+    is_parent: bool = Field(default=False, description="Покупатель - родитель (True) или ученик (False)")
 
 
 class PaymentWebhook(BaseModel):
