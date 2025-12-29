@@ -582,6 +582,8 @@ class PaymentProcessor:
                 direction_enum_id = get_direction_enum_id(project_name)
 
         subjects_enum_ids = list(set(subjects_enum_ids))
+        
+        purchased_subjects_count = len(subjects_enum_ids) if subjects_enum_ids else 0
 
         amount = payment.total_cost
         payment_status = payment.course_order.status
@@ -624,6 +626,7 @@ class PaymentProcessor:
             utm_term=utm_term,
             ym_uid=ym_uid,
             domain=domain,
+            purchased_subjects_count=purchased_subjects_count,
         )
 
         if status_id:

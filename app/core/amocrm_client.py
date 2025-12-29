@@ -712,6 +712,7 @@ class AmoCRMClient:
         utm_term: str | None = None,
         ym_uid: str | None = None,
         domain: str | None = None,
+        purchased_subjects_count: int | None = None,
     ) -> None:
         """
         Обновить кастомные поля сделки и бюджет одним запросом.
@@ -764,8 +765,9 @@ class AmoCRMClient:
                     {"field_id": settings.AMO_LEAD_FIELD_LAST_PAYMENT_AMOUNT, "values": [{"value": int(last_payment_amount)}]}
                 )
 
-            new_purchase_count = current_purchase_count + 1
-            logger.info(f"Updating purchase count: {current_purchase_count} + 1 = {new_purchase_count}")
+            subjects_to_add = purchased_subjects_count if purchased_subjects_count else 1
+            new_purchase_count = current_purchase_count + subjects_to_add
+            logger.info(f"Updating purchase count: {current_purchase_count} + {subjects_to_add} = {new_purchase_count}")
 
             purchase_count_enum_id = self._get_purchase_count_enum_id(new_purchase_count)
             if purchase_count_enum_id:
