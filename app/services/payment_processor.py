@@ -192,7 +192,32 @@ class PaymentProcessor:
                 if existing_lead:
                     logger.info(f"OP сделка найдена в расширенном поиске: {existing_lead['id']}")
 
-            # ШАГ 3: ЕСЛИ СДЕЛКА НАЙДЕНА - обновить БЕЗ смены воронки/статуса
+            # ШАГ 2.5: ЕСЛИ СДЕЛКА НАЙДЕНА - проверить, не в необработанном ли этапе
+            if existing_lead:
+                current_pipeline = existing_lead["pipeline_id"]
+                current_status = existing_lead["status_id"]
+                
+                # Необработанные этапы (менеджер еще не работал)
+                UNPROCESSED_STATUSES = {
+                    settings.AMO_PIPELINE_SITE: [82318294, 41044773],      # Не оплативший, Новая заявка
+                    settings.AMO_PIPELINE_YANDEX: [82465570, 79982002],    # Не оплативший, Новая заявка
+                    settings.AMO_PIPELINE_PARTNERS: [82324050, 69764098],  # Не оплатившие, Новая заявка
+                    settings.PIPELINE_7_8_CLASS: [82320578, 81078194],     # Не оплатившие, Новая
+                }
+                
+                unprocessed = UNPROCESSED_STATUSES.get(current_pipeline, [])
+                
+                if current_status in unprocessed:
+                    logger.info("=" * 80)
+                    logger.info(
+                        f"СДЕЛКА {existing_lead['id']} В НЕОБРАБОТАННОМ ЭТАПЕ "
+                        f"(pipeline={current_pipeline}, status={current_status})"
+                    )
+                    logger.info("ИГНОРИРУЕМ её → создаем новую сделку в автооплатах")
+                    logger.info("=" * 80)
+                    existing_lead = None  # Сбрасываем, чтобы пошла логика создания новой
+
+            # ШАГ 3: ЕСЛИ СДЕЛКА НАЙДЕНА (И ОБРАБОТАНА МЕНЕДЖЕРОМ) - обновить БЕЗ смены воронки/статуса
             if existing_lead:
                 logger.info("=" * 80)
                 logger.info("СДЕЛКА НАЙДЕНА - обновляем БЕЗ смены воронки/статуса")
