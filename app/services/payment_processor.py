@@ -240,8 +240,8 @@ class PaymentProcessor:
                     f"pipeline={current_pipeline}, status={current_status}"
                 )
 
-                # Обновить только поля платежа (БЕЗ status_id!)
-                await self._update_lead_fields(lead_id, payment, status_id=None)
+                # Обновить только поля платежа (БЕЗ status_id и БЕЗ перезаписи UTM!)
+                await self._update_lead_fields(lead_id, payment, status_id=None, skip_utm=True)
 
                 # Добавить примечание
                 await self._add_payment_note(lead_id, payment)
