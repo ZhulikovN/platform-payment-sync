@@ -116,6 +116,7 @@ class Settings(BaseSettings):
     PIPELINE_TG_PARENTS: int = Field(..., description="ID воронки 'TG Родители'")
     PIPELINE_WEBINARS: int = Field(..., description="ID воронки 'Вебинары'")
     PIPELINE_7_8_CLASS: int = Field(..., description="ID воронки '7/8 класс'")
+    PIPELINE_TG_COPY: int = Field(..., description="ID воронки 'КОПИЯ ТГ'")
 
     # Статусы сделок (общие для всех воронок)
     STATUS_SUCCESS: int = Field(default=142, description="ID статуса 'Успешно реализовано' (общий для всех воронок)")

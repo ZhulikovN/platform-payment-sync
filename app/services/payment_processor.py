@@ -179,7 +179,7 @@ class PaymentProcessor:
             # ШАГ 2: ЕСЛИ utm_source=op И сделка не найдена на шаге 1
             if is_op_utm and not existing_lead:
                 logger.info("=" * 80)
-                logger.info("ШАГ 2: utm_source=op обнаружен, расширенный поиск в 13 воронках")
+                logger.info("ШАГ 2: utm_source=op обнаружен, расширенный поиск в 14 воронках")
                 logger.info("=" * 80)
 
                 existing_lead = await self.client.find_op_lead(
