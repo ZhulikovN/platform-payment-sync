@@ -618,28 +618,28 @@ class PaymentProcessor:
         subjects_enum_ids = []
         direction_enum_id = None
 
-        # Приоритет 1: Определяем направление по классу пользователя
-        user_class = payment.course_order.user.user_class
-        if user_class:
-            try:
-                direction_enum_id = get_direction_enum_id_by_class(user_class)
-                if direction_enum_id:
-                    logger.info(f"Direction determined by user class: {user_class} → {direction_enum_id}")
-            except Exception as e:
-                logger.warning(f"Error determining direction by class: {e}")
+        # Приоритет 1: Определяем направление по названию первого платного курса
+        try:
+            for item in payment.course_order.course_order_items:
+                if item.cost > 0:  # Только платные курсы
+                    course_name = item.course.name
+                    direction_enum_id = get_direction_enum_id_by_course_name(course_name)
+                    if direction_enum_id:
+                        logger.info(f"Direction determined by course name: '{course_name}' → {direction_enum_id}")
+                        break
+        except Exception as e:
+            logger.warning(f"Error determining direction by course name: {e}")
 
-        # Приоритет 2: Если класса нет, смотрим на название первого платного курса
+        # Приоритет 2: Если по названию не определили, пробуем по классу пользователя
         if direction_enum_id is None:
-            try:
-                for item in payment.course_order.course_order_items:
-                    if item.cost > 0:  # Только платные курсы
-                        course_name = item.course.name
-                        direction_enum_id = get_direction_enum_id_by_course_name(course_name)
-                        if direction_enum_id:
-                            logger.info(f"Direction determined by course name: '{course_name}' → {direction_enum_id}")
-                            break
-            except Exception as e:
-                logger.warning(f"Error determining direction by course name: {e}")
+            user_class = payment.course_order.user.user_class
+            if user_class:
+                try:
+                    direction_enum_id = get_direction_enum_id_by_class(user_class)
+                    if direction_enum_id:
+                        logger.info(f"Direction determined by user class: {user_class} → {direction_enum_id}")
+                except Exception as e:
+                    logger.warning(f"Error determining direction by class: {e}")
 
         # Приоритет 3 (Fallback): Старая логика по project (ЕГЭ/ОГЭ)
         if direction_enum_id is None:
