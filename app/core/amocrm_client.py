@@ -790,11 +790,12 @@ class AmoCRMClient:
                     {"field_id": settings.AMO_LEAD_FIELD_DIRECTION, "values": [{"enum_id": direction}]}
                 )
 
-            if last_payment_amount is not None:
-                logger.info(f"Updating last payment amount: {last_payment_amount}")
-                update_data["custom_fields_values"].append(
-                    {"field_id": settings.AMO_LEAD_FIELD_LAST_PAYMENT_AMOUNT, "values": [{"value": int(last_payment_amount)}]}
-                )
+            # ВРЕМЕННО ОТКЛЮЧЕНО: field_id 812547 не существует в воронке
+            # if last_payment_amount is not None:
+            #     logger.info(f"Updating last payment amount: {last_payment_amount}")
+            #     update_data["custom_fields_values"].append(
+            #         {"field_id": settings.AMO_LEAD_FIELD_LAST_PAYMENT_AMOUNT, "values": [{"value": int(last_payment_amount)}]}
+            #     )
 
             subjects_to_add = purchased_subjects_count if purchased_subjects_count else 1
             new_purchase_count = current_purchase_count + subjects_to_add
@@ -808,27 +809,29 @@ class AmoCRMClient:
             else:
                 logger.warning(f"Purchase count {new_purchase_count} is out of range (1-10), skipping update")
 
-            if payment_status:
-                logger.info(f"Updating payment status: {payment_status}")
-                status_mapping = {"CONFIRMED": 1, "PENDING": 0, "FAILED": 2, "CANCELLED": 3}
-                status_value = status_mapping.get(payment_status, 0)
-                update_data["custom_fields_values"].append(
-                    {"field_id": settings.AMO_LEAD_FIELD_PAYMENT_STATUS, "values": [{"value": status_value}]}
-                )
+            # ВРЕМЕННО ОТКЛЮЧЕНО: field_id 812549 не существует в воронке
+            # if payment_status:
+            #     logger.info(f"Updating payment status: {payment_status}")
+            #     status_mapping = {"CONFIRMED": 1, "PENDING": 0, "FAILED": 2, "CANCELLED": 3}
+            #     status_value = status_mapping.get(payment_status, 0)
+            #     update_data["custom_fields_values"].append(
+            #         {"field_id": settings.AMO_LEAD_FIELD_PAYMENT_STATUS, "values": [{"value": status_value}]}
+            #     )
 
-            if last_payment_date:
-                logger.info(f"Updating last payment date: {last_payment_date}")
-                try:
-                    if isinstance(last_payment_date, str):
-                        dt = datetime.strptime(last_payment_date, "%Y-%m-%d %H:%M:%S")
-                        timestamp = int(dt.timestamp())
-                    else:
-                        timestamp = int(last_payment_date)
-                    update_data["custom_fields_values"].append(
-                        {"field_id": settings.AMO_LEAD_FIELD_LAST_PAYMENT_DATE, "values": [{"value": timestamp}]}
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to convert date to timestamp: {e}")
+            # ВРЕМЕННО ОТКЛЮЧЕНО: field_id 812555 не существует в воронке
+            # if last_payment_date:
+            #     logger.info(f"Updating last payment date: {last_payment_date}")
+            #     try:
+            #         if isinstance(last_payment_date, str):
+            #             dt = datetime.strptime(last_payment_date, "%Y-%m-%d %H:%M:%S")
+            #             timestamp = int(dt.timestamp())
+            #         else:
+            #             timestamp = int(last_payment_date)
+            #         update_data["custom_fields_values"].append(
+            #             {"field_id": settings.AMO_LEAD_FIELD_LAST_PAYMENT_DATE, "values": [{"value": timestamp}]}
+            #         )
+            #     except Exception as e:
+            #         logger.warning(f"Failed to convert date to timestamp: {e}")
 
             if payment_id:
                 logger.info(f"Updating payment ID: {payment_id}")
@@ -1030,7 +1033,7 @@ class AmoCRMClient:
 
         # Определить воронки и исключаемые статусы в зависимости от сценария
         if is_utm_op:
-            # СЦЕНАРИЙ 1: utm_source=op (широкий поиск в 13 воронках)
+            # СЦЕНАРИЙ 1: utm_source=op (широкий поиск в 14 воронках)
             allowed_pipelines = [
                 settings.AMO_PIPELINE_SITE,
                 settings.PIPELINE_SITE_TG,
@@ -1045,6 +1048,7 @@ class AmoCRMClient:
                 settings.PIPELINE_TG_PARENTS,
                 settings.PIPELINE_WEBINARS,
                 settings.PIPELINE_7_8_CLASS,
+                settings.PIPELINE_TG_COPY,
             ]
 
             excluded_statuses = [

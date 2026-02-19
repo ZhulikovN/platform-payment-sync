@@ -46,9 +46,9 @@ class Settings(BaseSettings):
     AMO_LEAD_FIELD_SUBJECT_MATH_7_8: int = Field(..., description="enum_id для 'Математика'")
 
     # Enum ID для направлений (по классам/курсам)
-    AMO_DIRECTION_CLASS_11: int = Field(..., description="enum_id для направления 'Полугодовой 2к26 11 класс'")
-    AMO_DIRECTION_CLASS_10: int = Field(..., description="enum_id для направления 'Полугодовой 2к26 10 класс'")
-    AMO_DIRECTION_CLASS_9: int = Field(..., description="enum_id для направления 'Полугодовой 2к26 ОГЭ' (9 класс)")
+    AMO_DIRECTION_CLASS_11: int = Field(..., description="enum_id для направления 'Весенний курс 2к26 ЕГЭ 11 класс'")
+    AMO_DIRECTION_CLASS_10: int = Field(..., description="enum_id для направления 'Весенний курс 2к26 ЕГЭ 10 класс'")
+    AMO_DIRECTION_CLASS_9: int = Field(..., description="enum_id для направления 'Весенний курс 2к26 ОГЭ' (9 класс)")
     AMO_DIRECTION_CLASS_8: int = Field(..., description="enum_id для направления 'Математика 8 класс 2к26'")
     AMO_DIRECTION_CLASS_7: int = Field(..., description="enum_id для направления 'Математика 7 класс 2к26'")
     
@@ -116,6 +116,7 @@ class Settings(BaseSettings):
     PIPELINE_TG_PARENTS: int = Field(..., description="ID воронки 'TG Родители'")
     PIPELINE_WEBINARS: int = Field(..., description="ID воронки 'Вебинары'")
     PIPELINE_7_8_CLASS: int = Field(..., description="ID воронки '7/8 класс'")
+    PIPELINE_TG_COPY: int = Field(..., description="ID воронки 'КОПИЯ ТГ'")
 
     # Статусы сделок (общие для всех воронок)
     STATUS_SUCCESS: int = Field(default=142, description="ID статуса 'Успешно реализовано' (общий для всех воронок)")

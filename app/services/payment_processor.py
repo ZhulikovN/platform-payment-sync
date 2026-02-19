@@ -179,7 +179,7 @@ class PaymentProcessor:
             # ШАГ 2: ЕСЛИ utm_source=op И сделка не найдена на шаге 1
             if is_op_utm and not existing_lead:
                 logger.info("=" * 80)
-                logger.info("ШАГ 2: utm_source=op обнаружен, расширенный поиск в 13 воронках")
+                logger.info("ШАГ 2: utm_source=op обнаружен, расширенный поиск в 14 воронках")
                 logger.info("=" * 80)
 
                 existing_lead = await self.client.find_op_lead(
@@ -240,8 +240,8 @@ class PaymentProcessor:
                     f"pipeline={current_pipeline}, status={current_status}"
                 )
 
-                # Обновить только поля платежа (БЕЗ status_id!)
-                await self._update_lead_fields(lead_id, payment, status_id=None)
+                # Обновить только поля платежа (БЕЗ status_id и БЕЗ перезаписи UTM!)
+                await self._update_lead_fields(lead_id, payment, status_id=None, skip_utm=True)
 
                 # Добавить примечание
                 await self._add_payment_note(lead_id, payment)
