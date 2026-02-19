@@ -46,11 +46,17 @@ class Settings(BaseSettings):
     AMO_LEAD_FIELD_SUBJECT_MATH_7_8: int = Field(..., description="enum_id для 'Математика'")
 
     # Enum ID для направлений (по классам/курсам)
+    # НОВЫЕ курсы "Весенний курс 2к26"
     AMO_DIRECTION_CLASS_11: int = Field(..., description="enum_id для направления 'Весенний курс 2к26 ЕГЭ 11 класс'")
     AMO_DIRECTION_CLASS_10: int = Field(..., description="enum_id для направления 'Весенний курс 2к26 ЕГЭ 10 класс'")
     AMO_DIRECTION_CLASS_9: int = Field(..., description="enum_id для направления 'Весенний курс 2к26 ОГЭ' (9 класс)")
     AMO_DIRECTION_CLASS_8: int = Field(..., description="enum_id для направления 'Математика 8 класс 2к26'")
     AMO_DIRECTION_CLASS_7: int = Field(..., description="enum_id для направления 'Математика 7 класс 2к26'")
+    
+    # СТАРЫЕ курсы (Годовой, Полугодовой, Погоня, Фора и т.д.)
+    AMO_DIRECTION_OLD_CLASS_11: int = Field(..., description="enum_id для направления 'Полугодовой 2к26 11 класс' (старые курсы)")
+    AMO_DIRECTION_OLD_CLASS_10: int = Field(..., description="enum_id для направления 'Полугодовой 2к26 10 класс' (старые курсы)")
+    AMO_DIRECTION_OLD_CLASS_9: int = Field(..., description="enum_id для направления 'Полугодовой 2к26 ОГЭ' (старые курсы)")
     
     # Старые направления (fallback для обратной совместимости)
     AMO_DIRECTION_OGE: int = Field(..., description="enum_id для направления 'ОГЭ' (fallback)")
