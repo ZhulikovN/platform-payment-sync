@@ -727,6 +727,7 @@ class AmoCRMClient:
         lead_id: int,
         subjects: list[int] | None = None,
         direction: int | None = None,
+        course_type: int | None = None,  # Новое: тип курса (Standart/PRO)
         last_payment_amount: int | None = None,
         payment_status: str | None = None,
         last_payment_date: str | None = None,
@@ -752,6 +753,7 @@ class AmoCRMClient:
             lead_id: ID сделки
             subjects: Список enum_id предметов (для мультисписка)
             direction: enum_id направления курса (ЕГЭ/ОГЭ)
+            course_type: enum_id типа курса (Standart/PRO)
             last_payment_amount: Сумма последней оплаты
             payment_status: Статус оплаты
             last_payment_date: Дата последней оплаты
@@ -788,6 +790,12 @@ class AmoCRMClient:
                 logger.info(f"Updating direction: {direction}")
                 update_data["custom_fields_values"].append(
                     {"field_id": settings.AMO_LEAD_FIELD_DIRECTION, "values": [{"enum_id": direction}]}
+                )
+
+            if course_type:
+                logger.info(f"Updating course type: {course_type}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_COURSE_TYPE, "values": [{"enum_id": course_type}]}
                 )
 
             # ВРЕМЕННО ОТКЛЮЧЕНО: field_id 812547 не существует в воронке
