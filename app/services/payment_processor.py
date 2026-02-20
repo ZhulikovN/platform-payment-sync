@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from app.core.amocrm_client import AmoCRMClient
-from app.core.amocrm_mappings import SUBJECTS_MAPPING, get_direction_enum_id_by_class, get_direction_enum_id_by_course_name
+from app.core.amocrm_mappings import SUBJECTS_MAPPING, get_direction_enum_id_by_class, get_direction_enum_id_by_course_name, get_course_type_enum_id
 from app.core.settings import settings
 from app.db.event_logger import EventLogger
 from app.models.payment_webhook import PaymentUTM, PaymentWebhook
@@ -617,6 +617,7 @@ class PaymentProcessor:
 
         subjects_enum_ids = []
         direction_enum_id = None
+        course_type_enum_id = None  # Новое: тип курса (Standart/PRO)
 
         # Приоритет 1: Определяем направление по названию первого платного курса
         try:
@@ -624,6 +625,11 @@ class PaymentProcessor:
                 if item.cost > 0:  # Только платные курсы
                     course_name = item.course.name
                     direction_enum_id = get_direction_enum_id_by_course_name(course_name)
+                    
+                    # Определяем тип курса (Standart/PRO) из того же названия
+                    if course_type_enum_id is None:
+                        course_type_enum_id = get_course_type_enum_id(course_name)
+                    
                     if direction_enum_id:
                         logger.info(f"Direction determined by course name: '{course_name}' → {direction_enum_id}")
                         break
@@ -707,6 +713,7 @@ class PaymentProcessor:
             lead_id=lead_id,
             subjects=subjects_enum_ids if subjects_enum_ids else None,
             direction=direction_enum_id,
+            course_type=course_type_enum_id,  # Новое: тип курса
             last_payment_amount=amount,
             payment_status=payment_status,
             last_payment_date=payment_date,
