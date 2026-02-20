@@ -92,10 +92,15 @@ class Settings(BaseSettings):
     # Поля пользователя
     AMO_LEAD_FIELD_ROLE: int = Field(..., description="ID поля 'Роль' (Ученик/Родитель) в сделке")
     AMO_LEAD_FIELD_CLASS: int = Field(..., description="ID поля 'Класс' в сделке")
+    AMO_LEAD_FIELD_COURSE_TYPE: int = Field(..., description="ID поля 'Какой курс куплен'")
     
     # Enum ID для роли (Ученик/Родитель)
     AMO_LEAD_FIELD_ROLE_PARENT: int = Field(..., description="enum_id для значения 'Родитель'")
     AMO_LEAD_FIELD_ROLE_STUDENT: int = Field(..., description="enum_id для значения 'Ученик'")
+    
+    # Enum ID для типа курса (Standart/PRO)
+    AMO_COURSE_TYPE_STANDART: int = Field(..., description="enum_id для типа курса 'Standart'")
+    AMO_COURSE_TYPE_PRO: int = Field(..., description="enum_id для типа курса 'PRO'")
     
     # Enum ID для класса (7, 8, 9, 10, 11)
     AMO_LEAD_FIELD_CLASS_7: int = Field(..., description="enum_id для класса 7")
