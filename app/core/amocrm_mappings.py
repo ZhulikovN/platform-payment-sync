@@ -156,6 +156,50 @@ def get_direction_enum_id_by_course_name(course_name: str) -> int | None:
     return None
 
 
+def get_course_type_enum_id(course_name: str) -> int | None:
+    """
+    Определить тип курса (Standart/PRO) по названию.
+    
+    Работает ТОЛЬКО для новых курсов:
+    - Весенний курс 2к26 (9, 10, 11 класс)
+    - Математика 2к26 (7, 8 класс)
+    
+    Для старых курсов (Полугодовой, Годовой и т.д.) → возвращает None (не заполняем поле).
+    
+    Ищет в названии:
+    - "standart" / "Standart" / "STANDART" → 1376634
+    - "pro" / "Pro" / "PRO" → 1380929
+    - Если не найдено ни одно → 1376634 (Standart по умолчанию)
+    
+    Args:
+        course_name: Название курса
+    
+    Returns:
+        enum_id: 1376634 (Standart) или 1380929 (PRO), или None (не заполнять)
+    """
+    course_lower = course_name.lower()
+    
+    # Проверяем только для новых курсов
+    is_new_course = (
+        "весенний курс" in course_lower or 
+        "математика 8 класс 2к26" in course_lower or 
+        "математика 7 класс 2к26" in course_lower
+    )
+    
+    if not is_new_course:
+        return None  # Для старых курсов не заполняем поле
+    
+    # Для новых курсов проверяем тип
+    if "pro" in course_lower:
+        return settings.AMO_COURSE_TYPE_PRO  # 1380929
+    
+    if "standart" in course_lower:
+        return settings.AMO_COURSE_TYPE_STANDART  # 1376634
+    
+    # По умолчанию для новых курсов → Standart
+    return settings.AMO_COURSE_TYPE_STANDART  # 1376634
+
+
 def _get_class_enum_id(user_class: int) -> int | None:
     """
     Получить enum_id для класса пользователя.
