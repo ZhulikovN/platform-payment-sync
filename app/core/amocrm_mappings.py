@@ -199,22 +199,3 @@ def get_course_type_enum_id(course_name: str) -> int | None:
     # По умолчанию для новых курсов → Standart
     return settings.AMO_COURSE_TYPE_STANDART  # 1376634
 
-
-def _get_class_enum_id(user_class: int) -> int | None:
-    """
-    Получить enum_id для класса пользователя.
-
-    Args:
-        user_class: Класс пользователя (7, 8, 9, 10, 11)
-
-    Returns:
-        enum_id для AmoCRM или None если класс не поддерживается
-    """
-    mapping = {
-        7: settings.AMO_LEAD_FIELD_CLASS_7,
-        8: settings.AMO_LEAD_FIELD_CLASS_8,
-        9: settings.AMO_LEAD_FIELD_CLASS_9,
-        10: settings.AMO_LEAD_FIELD_CLASS_10,
-        11: settings.AMO_LEAD_FIELD_CLASS_11,
-    }
-    return mapping.get(user_class)

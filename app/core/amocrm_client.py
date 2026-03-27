@@ -15,7 +15,7 @@ from tenacity import (
 from app.core.amocrm_mappings import (
     ALLOWED_PIPELINES,
     EXCLUDED_STATUSES,
-    normalize_phone, _get_class_enum_id,
+    normalize_phone,
 )
 from app.core.settings import settings
 
@@ -33,30 +33,6 @@ class AmoCRMClient:
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
         }
-
-    def _get_purchase_count_enum_id(self, count: int) -> int | None:
-        """
-        Получить enum_id для значения счетчика покупок.
-
-        Args:
-            count: Количество покупок (1-10)
-
-        Returns:
-            enum_id для AmoCRM или None если значение вне диапазона
-        """
-        mapping = {
-            1: settings.AMO_PURCHASE_COUNT_1,
-            2: settings.AMO_PURCHASE_COUNT_2,
-            3: settings.AMO_PURCHASE_COUNT_3,
-            4: settings.AMO_PURCHASE_COUNT_4,
-            5: settings.AMO_PURCHASE_COUNT_5,
-            6: settings.AMO_PURCHASE_COUNT_6,
-            7: settings.AMO_PURCHASE_COUNT_7,
-            8: settings.AMO_PURCHASE_COUNT_8,
-            9: settings.AMO_PURCHASE_COUNT_9,
-            10: settings.AMO_PURCHASE_COUNT_10,
-        }
-        return mapping.get(count)
 
     async def _make_request(
         self, method: str, endpoint: str, data: dict[str, Any] | list[dict[str, Any]] | None = None
@@ -82,9 +58,9 @@ class AmoCRMClient:
             logger.debug(f"Request data: {data}")
 
         async for attempt in AsyncRetrying(
-            stop=stop_after_attempt(settings.RETRY_MAX_ATTEMPTS),
+            stop=stop_after_attempt(2),  # Снижено с 3 до 2
             wait=wait_exponential(multiplier=1, min=settings.RETRY_WAIT_MIN, max=settings.RETRY_WAIT_MAX),
-            retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError)),
+            retry=retry_if_exception_type(httpx.RequestError),  # Только сетевые ошибки, не HTTP статусы
         ):
             with attempt:
                 try:
@@ -687,14 +663,11 @@ class AmoCRMClient:
             )
 
         if user_class is not None:
-            class_enum_id = _get_class_enum_id(user_class)
-            if class_enum_id:
-                logger.info(f"Adding class: {user_class} (enum_id={class_enum_id})")
-                lead_data["custom_fields_values"].append(
-                    {"field_id": settings.AMO_LEAD_FIELD_CLASS, "values": [{"enum_id": class_enum_id}]}
-                )
-            else:
-                logger.warning(f"Class {user_class} not supported (only 7-11), skipping")
+            # Новое поле 806496 - textarea (записываем просто текст: "7", "8", "9", "10", "11")
+            logger.info(f"Adding class: {user_class}")
+            lead_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_CLASS, "values": [{"value": str(user_class)}]}
+            )
 
         if is_parent is not None:
             role_enum_id = settings.AMO_LEAD_FIELD_ROLE_PARENT if is_parent else settings.AMO_LEAD_FIELD_ROLE_STUDENT
@@ -809,13 +782,10 @@ class AmoCRMClient:
             new_purchase_count = current_purchase_count + subjects_to_add
             logger.info(f"Updating purchase count: {current_purchase_count} + {subjects_to_add} = {new_purchase_count}")
 
-            purchase_count_enum_id = self._get_purchase_count_enum_id(new_purchase_count)
-            if purchase_count_enum_id:
-                update_data["custom_fields_values"].append(
-                    {"field_id": settings.AMO_LEAD_FIELD_PURCHASE_COUNT, "values": [{"enum_id": purchase_count_enum_id}]}
-                )
-            else:
-                logger.warning(f"Purchase count {new_purchase_count} is out of range (1-10), skipping update")
+            # Новое поле 813727 - numeric (записываем просто число)
+            update_data["custom_fields_values"].append(
+                {"field_id": settings.AMO_LEAD_FIELD_PURCHASE_COUNT, "values": [{"value": new_purchase_count}]}
+            )
 
             # ВРЕМЕННО ОТКЛЮЧЕНО: field_id 812549 не существует в воронке
             # if payment_status:
@@ -896,14 +866,11 @@ class AmoCRMClient:
                 )
 
             if user_class is not None:
-                class_enum_id = _get_class_enum_id(user_class)
-                if class_enum_id:
-                    logger.info(f"Updating class: {user_class} (enum_id={class_enum_id})")
-                    update_data["custom_fields_values"].append(
-                        {"field_id": settings.AMO_LEAD_FIELD_CLASS, "values": [{"enum_id": class_enum_id}]}
-                    )
-                else:
-                    logger.warning(f"Class {user_class} not supported (only 7-11), skipping")
+                # Новое поле 806496 - textarea (записываем просто текст: "7", "8", "9", "10", "11")
+                logger.info(f"Updating class: {user_class}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_CLASS, "values": [{"value": str(user_class)}]}
+                )
 
             if is_parent is not None:
                 role_enum_id = settings.AMO_LEAD_FIELD_ROLE_PARENT if is_parent else settings.AMO_LEAD_FIELD_ROLE_STUDENT
@@ -956,7 +923,7 @@ class AmoCRMClient:
             price: Бюджет сделки
             subjects: Список enum_id предметов (для мультисписка)
             direction: enum_id направления курса (ЕГЭ/ОГЭ)
-            purchase_count: enum_id количества купленных курсов
+            purchase_count: Количество купленных курсов (число)
         """
         logger.info(f"Updating lead {lead_id}")
 
@@ -977,7 +944,8 @@ class AmoCRMClient:
             custom_fields.append({"field_id": settings.AMO_LEAD_FIELD_DIRECTION, "values": [{"enum_id": direction}]})
 
         if purchase_count:
-            custom_fields.append({"field_id": settings.AMO_LEAD_FIELD_PURCHASE_COUNT, "values": [{"enum_id": purchase_count}]})
+            # Новое поле 813727 - numeric (записываем просто число)
+            custom_fields.append({"field_id": settings.AMO_LEAD_FIELD_PURCHASE_COUNT, "values": [{"value": purchase_count}]})
 
         if custom_fields:
             update_data["custom_fields_values"] = custom_fields
