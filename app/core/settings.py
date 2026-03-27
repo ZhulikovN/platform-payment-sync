@@ -62,17 +62,6 @@ class Settings(BaseSettings):
     AMO_DIRECTION_OGE: int = Field(..., description="enum_id для направления 'ОГЭ' (fallback)")
     AMO_DIRECTION_EGE: int = Field(..., description="enum_id для направления 'ЕГЭ' (fallback)")
 
-    AMO_PURCHASE_COUNT_1: int = Field(..., description="enum_id для значения '1' в поле 'Купленных курсов'")
-    AMO_PURCHASE_COUNT_2: int = Field(..., description="enum_id для значения '2' в поле 'Купленных курсов'")
-    AMO_PURCHASE_COUNT_3: int = Field(..., description="enum_id для значения '3' в поле 'Купленных курсов'")
-    AMO_PURCHASE_COUNT_4: int = Field(..., description="enum_id для значения '4' в поле 'Купленных курсов'")
-    AMO_PURCHASE_COUNT_5: int = Field(..., description="enum_id для значения '5' в поле 'Купленных курсов'")
-    AMO_PURCHASE_COUNT_6: int = Field(..., description="enum_id для значения '6' в поле 'Купленных курсов'")
-    AMO_PURCHASE_COUNT_7: int = Field(..., description="enum_id для значения '7' в поле 'Купленных курсов'")
-    AMO_PURCHASE_COUNT_8: int = Field(..., description="enum_id для значения '8' в поле 'Купленных курсов'")
-    AMO_PURCHASE_COUNT_9: int = Field(..., description="enum_id для значения '9' в поле 'Купленных курсов'")
-    AMO_PURCHASE_COUNT_10: int = Field(..., description="enum_id для значения '10' в поле 'Купленных курсов'")
-
     # UTM поля статистики (tracking_data)
     AMO_LEAD_FIELD_UTM_SOURCE: int = Field(..., description="ID поля 'utm_source' в сделке")
     AMO_LEAD_FIELD_UTM_MEDIUM: int = Field(..., description="ID поля 'utm_medium' в сделке")
@@ -101,13 +90,6 @@ class Settings(BaseSettings):
     # Enum ID для типа курса (Standart/PRO)
     AMO_COURSE_TYPE_STANDART: int = Field(..., description="enum_id для типа курса 'Standart'")
     AMO_COURSE_TYPE_PRO: int = Field(..., description="enum_id для типа курса 'PRO'")
-    
-    # Enum ID для класса (7, 8, 9, 10, 11)
-    AMO_LEAD_FIELD_CLASS_7: int = Field(..., description="enum_id для класса 7")
-    AMO_LEAD_FIELD_CLASS_8: int = Field(..., description="enum_id для класса 8")
-    AMO_LEAD_FIELD_CLASS_9: int = Field(..., description="enum_id для класса 9")
-    AMO_LEAD_FIELD_CLASS_10: int = Field(..., description="enum_id для класса 10")
-    AMO_LEAD_FIELD_CLASS_11: int = Field(..., description="enum_id для класса 11")
 
     # Воронки для автоплаты (определяются по UTM)
     AMO_PIPELINE_SITE: int = Field(..., description="ID воронки 'Сайт'")
