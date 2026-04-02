@@ -67,6 +67,10 @@ class CourseOrder(BaseModel):
     payment_method: str | None = Field(None, description="Метод оплаты (SBP, карта и т.д.)")
     currency: str = Field(default="RUB", description="Валюта оплаты")
     is_parent: bool | None = Field(default=False, description="Покупатель - родитель (True) или ученик (False)")
+    single_course_pay: bool | None = Field(
+        default=False, 
+        description="Если True - обновлять существующую сделку БЕЗ смены воронки/статуса"
+    )
 
 
 class PaymentWebhook(BaseModel):
