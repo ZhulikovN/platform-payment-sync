@@ -1009,7 +1009,7 @@ class AmoCRMClient:
 
         # Определить воронки и исключаемые статусы в зависимости от сценария
         if is_utm_op:
-            # СЦЕНАРИЙ 1: utm_source=op (широкий поиск в 14 воронках)
+            # СЦЕНАРИЙ 1: utm_source=op (широкий поиск в 17 воронках)
             allowed_pipelines = [
                 settings.AMO_PIPELINE_SITE,
                 settings.PIPELINE_SITE_TG,
@@ -1025,6 +1025,9 @@ class AmoCRMClient:
                 settings.PIPELINE_WEBINARS,
                 settings.PIPELINE_7_8_CLASS,
                 settings.PIPELINE_TG_COPY,
+                settings.PIPELINE_7_8_BRON,
+                settings.PIPELINE_GR,
+                settings.PIPELINE_CROSS,
             ]
 
             excluded_statuses = [
