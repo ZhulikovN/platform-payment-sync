@@ -71,6 +71,10 @@ class CourseOrder(BaseModel):
         default=False, 
         description="Если True - обновлять существующую сделку БЕЗ смены воронки/статуса"
     )
+    amo_payment_id: int | None = Field(
+        default=None,
+        description="ID существующей сделки в AmoCRM для прямого обновления"
+    )
 
 
 class PaymentWebhook(BaseModel):
