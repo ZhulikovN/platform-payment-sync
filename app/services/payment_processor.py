@@ -160,24 +160,42 @@ class PaymentProcessor:
 
             existing_lead = None
             is_op_utm = self.is_op_payment(payment)
+            single_course_pay = payment.course_order.single_course_pay or False
+            amo_payment_id = payment.course_order.amo_payment_id
 
-            # ШАГ 1: ВСЕГДА искать сделки с названием "Оплата: ОГЭ/ЕГЭ/Средняя школа" в 2 воронках
-            logger.info("=" * 80)
-            logger.info("ШАГ 1: Поиск сделок с названием 'Оплата: ОГЭ/ЕГЭ/Средняя школа'")
-            logger.info("=" * 80)
+            # ШАГ 0: ЕСЛИ amo_payment_id указан - прямой поиск по ID сделки
+            if amo_payment_id is not None:
+                logger.info("=" * 80)
+                logger.info(f"ШАГ 0: amo_payment_id={amo_payment_id} указан - прямой поиск сделки по ID")
+                logger.info("=" * 80)
 
-            existing_lead = await self.client.find_op_lead(
-                telegram_id=tg_id,
-                phone=phone,
-                email=email,
-                is_utm_op=False,  # Поиск по названию → 2 воронки
-            )
+                existing_lead = await self.client.get_lead_by_id(amo_payment_id)
 
-            if existing_lead:
-                logger.info(f"Сделка с названием 'Оплата:...' найдена: {existing_lead['id']}")
+                if existing_lead:
+                    logger.info(f"Сделка найдена по amo_payment_id: {existing_lead['id']}")
+                else:
+                    logger.error(f"Сделка {amo_payment_id} не найдена в AmoCRM!")
+                    raise ValueError(f"Lead {amo_payment_id} not found")
+
+            # ЕСЛИ amo_payment_id НЕ указан - стандартная логика поиска
+            if amo_payment_id is None:
+                # ШАГ 1: ВСЕГДА искать сделки с названием "Оплата: ОГЭ/ЕГЭ/Средняя школа" в 2 воронках
+                logger.info("=" * 80)
+                logger.info("ШАГ 1: Поиск сделок с названием 'Оплата: ОГЭ/ЕГЭ/Средняя школа'")
+                logger.info("=" * 80)
+
+                existing_lead = await self.client.find_op_lead(
+                    telegram_id=tg_id,
+                    phone=phone,
+                    email=email,
+                    is_utm_op=False,  # Поиск по названию → 2 воронки
+                )
+
+                if existing_lead:
+                    logger.info(f"Сделка с названием 'Оплата:...' найдена: {existing_lead['id']}")
 
             # ШАГ 2: ЕСЛИ utm_source=op И сделка не найдена на шаге 1
-            if is_op_utm and not existing_lead:
+            if amo_payment_id is None and is_op_utm and not existing_lead:
                 logger.info("=" * 80)
                 logger.info("ШАГ 2: utm_source=op обнаружен, расширенный поиск в 14 воронках")
                 logger.info("=" * 80)
@@ -192,8 +210,25 @@ class PaymentProcessor:
                 if existing_lead:
                     logger.info(f"OP сделка найдена в расширенном поиске: {existing_lead['id']}")
 
+            # ШАГ 2.1: ЕСЛИ single_course_pay=True И сделка не найдена на шагах 1-2
+            if amo_payment_id is None and single_course_pay and not existing_lead:
+                logger.info("=" * 80)
+                logger.info("ШАГ 2.1: single_course_pay=True, поиск сделки с is_utm_op=True")
+                logger.info("=" * 80)
+
+                existing_lead = await self.client.find_op_lead(
+                    telegram_id=tg_id,
+                    phone=phone,
+                    email=email,
+                    is_utm_op=True,
+                )
+
+                if existing_lead:
+                    logger.info(f"Сделка найдена для single_course_pay: {existing_lead['id']}")
+
             # ШАГ 2.5: ЕСЛИ СДЕЛКА НАЙДЕНА - проверить, не в необработанном ли этапе
-            if existing_lead:
+            # ИСКЛЮЧЕНИЕ: Если single_course_pay=True ИЛИ amo_payment_id указан - НЕ игнорируем, обновляем как есть
+            if existing_lead and not single_course_pay and amo_payment_id is None:
                 current_pipeline = existing_lead["pipeline_id"]
                 current_status = existing_lead["status_id"]
                 
