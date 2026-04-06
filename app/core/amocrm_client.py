@@ -695,6 +695,38 @@ class AmoCRMClient:
             logger.error(f"Error creating lead: {e}")
             raise
 
+    async def get_lead_by_id(self, lead_id: int) -> dict[str, Any] | None:
+        """
+        Получить сделку по ID.
+
+        Args:
+            lead_id: ID сделки
+
+        Returns:
+            Данные сделки или None если не найдена
+        """
+        logger.info(f"Getting lead by ID: {lead_id}")
+
+        try:
+            response = await self._make_request("GET", f"/api/v4/leads/{lead_id}", data={"with": "contacts"})
+            
+            # Проверяем что ответ содержит данные сделки
+            if not response or "id" not in response:
+                logger.warning(f"Lead {lead_id} not found (empty response)")
+                return None
+            
+            logger.info(f"Lead {lead_id} found")
+            return response
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning(f"Lead {lead_id} not found")
+                return None
+            raise
+        except Exception as e:
+            logger.error(f"Error getting lead: {e}")
+            raise
+
     async def update_lead_fields(
         self,
         lead_id: int,
