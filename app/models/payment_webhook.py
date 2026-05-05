@@ -1,6 +1,6 @@
 """Pydantic модели для валидации входящих данных от платформы оплаты."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CourseSubject(BaseModel):
@@ -24,6 +24,14 @@ class CourseOrderItem(BaseModel):
     number_lessons: int = Field(..., description="Количество уроков", ge=0)
     course: PaymentCourse = Field(..., description="Информация о курсе")
     package_id: int | None = Field(None, description="ID пакета (если есть)")
+
+    @field_validator('cost', mode='before')
+    @classmethod
+    def round_cost(cls, v):
+        """Округлить cost до int если пришел float."""
+        if isinstance(v, float):
+            return int(v)
+        return v
 
 
 class PaymentUser(BaseModel):
@@ -75,6 +83,27 @@ class CourseOrder(BaseModel):
         default=None,
         description="ID существующей сделки в AmoCRM для прямого обновления"
     )
+
+    @field_validator('amo_payment_id', mode='before')
+    @classmethod
+    def normalize_amo_payment_id(cls, v):
+        """Преобразовать пустое значение amo_payment_id в None."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            cleaned = v.strip()
+            if cleaned == "":
+                return None
+            return cleaned
+        return v
+
+    @field_validator('amount', mode='before')
+    @classmethod
+    def round_amount(cls, v):
+        """Округлить amount до int если пришел float."""
+        if isinstance(v, float):
+            return int(v)
+        return v
 
 
 class PaymentWebhook(BaseModel):
