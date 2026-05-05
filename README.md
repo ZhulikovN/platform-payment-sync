@@ -1,8 +1,5 @@
 # platform-payment-sync
 
-Сервис автоматической фиксации оплат с платформы pl.el-ed.ru в amoCRM.
-
-Документация: https://wiki.pushka228.ru/doc/platforma-platezh-sinhronizaciya-8Vr7cYH0ul
 
 ## Описание
 
