@@ -1,7 +1,7 @@
 """Клиент для работы с AmoCRM API."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -1263,11 +1263,11 @@ class AmoCRMClient:
             # Создать задачу
             task_data = {
                 "text": text,
-                "complete_till": int(datetime.now().timestamp()) + 86400,  # +1 день
+                "complete_till": int(datetime.now(tz=timezone(timedelta(hours=3))).timestamp()),
                 "entity_id": lead_id,
                 "entity_type": "leads",
                 "responsible_user_id": responsible_user_id,
-                "task_type_id": 1,  # Тип задачи: Звонок
+                "task_type_id": 4242630,
             }
 
             response = await self._make_request("POST", "/api/v4/tasks", data=[task_data])

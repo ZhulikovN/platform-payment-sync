@@ -286,7 +286,7 @@ class PaymentProcessor:
                 try:
                     task_id = await self.client.create_task_for_contact_manager(
                         lead_id=lead_id,
-                        text="Пришел платеж. Проверь все данные на корректность и отправь сделку в нужный этап",
+                        text="Поздравляю с продажей! Проверь, что все корректно заполнено и закрой Сделку",
                     )
                     logger.info(f"Задача создана: task_id={task_id}")
                 except Exception as task_error:
