@@ -59,6 +59,7 @@ SUBJECTS_MAPPING: dict[str, int] = {
     "Физика": settings.AMO_SUBJECT_PHYSICS,
     "Химия": settings.AMO_SUBJECT_CHEMISTRY,
     "Литература": settings.AMO_SUBJECT_LITERATURE,
+    "Проф. мат (Ильяс)": settings.AMO_SUBJECT_MATH_PROF_ILYAS,
     "Проф. мат (Маша)": settings.AMO_SUBJECT_MATH_PROF_MASHA,
     "Математика (база)": settings.AMO_SUBJECT_MATH_BASE,
     "Биология (Женя)": settings.AMO_SUBJECT_BIOLOGY_ZHENYA,

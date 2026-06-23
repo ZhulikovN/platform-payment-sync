@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     AMO_SUBJECT_PHYSICS: int = Field(..., description="enum_id для 'Физика'")
     AMO_SUBJECT_CHEMISTRY: int = Field(..., description="enum_id для 'Химия'")
     AMO_SUBJECT_LITERATURE: int = Field(..., description="enum_id для 'Литература'")
+    AMO_SUBJECT_MATH_PROF_ILYAS: int = Field(..., description="enum_id для 'Проф. мат (Ильяс)'")
     AMO_SUBJECT_MATH_PROF_MASHA: int = Field(..., description="enum_id для 'Проф. мат (Маша)'")
     AMO_SUBJECT_MATH_BASE: int = Field(..., description="enum_id для 'Математика (база)'")
     AMO_SUBJECT_BIOLOGY_ZHENYA: int = Field(..., description="enum_id для 'Биология (Женя)'")
