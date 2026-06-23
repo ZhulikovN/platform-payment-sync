@@ -22,7 +22,6 @@ class Settings(BaseSettings):
 
     AMO_CONTACT_FIELD_TG_ID: int = Field(..., description="ID поля 'Telegram user id' в контакте")
     AMO_CONTACT_FIELD_TG_USERNAME: int = Field(..., description="ID поля 'Telegram username' в контакте")
-    AMO_CONTACT_FIELD_TG_NAME: int = Field(..., description="ID поля 'Telegram name' в контакте")
 
     AMO_LEAD_FIELD_SUBJECTS: int = Field(..., description="ID поля 'Какой предмет выбрал' в сделке")
     AMO_LEAD_FIELD_DIRECTION: int = Field(..., description="ID поля 'Направления курса' в сделке")
@@ -42,17 +41,9 @@ class Settings(BaseSettings):
     AMO_SUBJECT_BIOLOGY_GELYA: int = Field(..., description="enum_id для 'Биология (Геля)'")
     AMO_SUBJECT_INFORMATICS: int = Field(..., description="enum_id для 'Информатика'")
     AMO_SUBJECT_MATH_PROF_SASHA: int = Field(..., description="enum_id для 'Проф. мат (Саша)'")
-    AMO_LEAD_FIELD_SUBJECT_MATH_OGE: int = Field(..., description="enum_id для 'Математика ОГЭ'")
-    AMO_LEAD_FIELD_SUBJECT_MATH_7_8: int = Field(..., description="enum_id для 'Математика'")
-
     # Enum ID для направлений (по классам/курсам)
-    # НОВЫЕ курсы "Весенний курс 2к26"
-    AMO_DIRECTION_CLASS_11: int = Field(..., description="enum_id для направления 'Весенний курс 2к26 ЕГЭ 11 класс'")
-    AMO_DIRECTION_CLASS_10: int = Field(..., description="enum_id для направления 'Весенний курс 2к26 ЕГЭ 10 класс'")
-    AMO_DIRECTION_CLASS_9: int = Field(..., description="enum_id для направления 'Весенний курс 2к26 ОГЭ' (9 класс)")
-    AMO_DIRECTION_CLASS_8: int = Field(..., description="enum_id для направления 'Математика 8 класс 2к26'")
-    AMO_DIRECTION_CLASS_7: int = Field(..., description="enum_id для направления 'Математика 7 класс 2к26'")
-    
+    AMO_DIRECTION_MIDDLE_SCHOOL: int = Field(..., description="enum_id для направления 'Средняя Школа 2к26' (6/7/8 класс)")
+
     # НОВЫЕ курсы "Марафон 2к26" и "Годовой курс 2к27"
     AMO_DIRECTION_MARATHON_2026: int = Field(..., description="enum_id для направления 'Марафон 2к26 ЕГЭ'")
     AMO_DIRECTION_ANNUAL_2027_CLASS_11: int = Field(..., description="enum_id для направления 'Годовой курс 2к27 ЕГЭ 11 класс'")
