@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 from tenacity import (
     AsyncRetrying,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -58,9 +58,12 @@ class AmoCRMClient:
             logger.debug(f"Request data: {data}")
 
         async for attempt in AsyncRetrying(
-            stop=stop_after_attempt(2),  # Снижено с 3 до 2
+            stop=stop_after_attempt(settings.RETRY_MAX_ATTEMPTS),
             wait=wait_exponential(multiplier=1, min=settings.RETRY_WAIT_MIN, max=settings.RETRY_WAIT_MAX),
-            retry=retry_if_exception_type(httpx.RequestError),  # Только сетевые ошибки, не HTTP статусы
+            retry=retry_if_exception(lambda e: (
+                isinstance(e, httpx.RequestError) or
+                (isinstance(e, httpx.HTTPStatusError) and e.response.status_code >= 500)
+            )),
         ):
             with attempt:
                 try:
