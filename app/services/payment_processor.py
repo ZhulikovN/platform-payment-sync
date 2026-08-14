@@ -53,68 +53,64 @@ class PaymentProcessor:
 
     def determine_pipeline_and_status(self, utm: PaymentUTM, user_class: int | None = None) -> tuple[int, int]:
         """
-        Определить воронку и этап на основе класса пользователя и UTM меток.
-
-        ЛОГИКА:
-        1. ПРИОРИТЕТ: Если класс 7 или 8 → воронка "7/8 класс"
-        2. ВСЕ остальные автооплаты идут в этап "Автооплаты ООО", но в разные воронки:
-           - ПАРТНЕРЫ - если utm_source совпал с правилами
-           - Сайт Яндекс - если utm_medium совпал с правилами
-           - Сайт - по умолчанию (если ничего не совпало)
-
-        Args:
-            utm: Объект PaymentUTM с UTM метками из payment.course_order.utm
-            user_class: Класс пользователя (7, 8, 9, 10, 11 и т.д.)
-
-        Returns:
-            Кортеж (pipeline_id, status_id):
-            - pipeline_id: ID воронки
-            - status_id: ID этапа "Автооплаты ООО" для соответствующей воронки
+        Все автооплаты → воронка Сайт (4423755), этап Автооплаты ООО (63242022).
         """
-        if user_class in [7, 8]:
-            logger.info(
-                f"Класс {user_class} обнаружен → воронка '7/8 класс' "
-                f"(ID={settings.PIPELINE_7_8_CLASS}) → Автооплаты ООО (ID={settings.PIPELINE_7_8_CLASS_AUTOPAY})"
-            )
-            return (
-                settings.PIPELINE_7_8_CLASS,
-                settings.PIPELINE_7_8_CLASS_AUTOPAY,
-            )
+        logger.info("Воронка: Сайт (4423755) → Автооплаты ООО (63242022)")
+        return (4423755, 63242022)
 
-        utm_source = (utm.source or "").lower()
-        utm_medium = (utm.medium or "").lower()
-
-        logger.info(f"Определение воронки: user_class={user_class}, utm_source='{utm_source}', utm_medium='{utm_medium}'")
-
-        partner_sources = settings.PARTNER_SOURCES.split(",")
-        for partner in partner_sources:
-            if partner.strip().lower() in utm_source:
-                logger.info(
-                    f"UTM совпали: ПАРТНЕРЫ (ID={settings.AMO_PIPELINE_PARTNERS}, "
-                    f"utm_source содержит '{partner}') → Автооплаты ООО"
-                )
-                return (
-                    settings.AMO_PIPELINE_PARTNERS,
-                    settings.AMO_STATUS_AUTOPAY_PARTNERS,
-                )
-
-        yandex_mediums = settings.YANDEX_MEDIUMS.split(",")
-        for medium in yandex_mediums:
-            if medium.strip().lower() in utm_medium:
-                logger.info(
-                    f"UTM совпали: Сайт Яндекс (ID={settings.AMO_PIPELINE_YANDEX}, "
-                    f"utm_medium содержит '{medium}') → Автооплаты ООО"
-                )
-                return (
-                    settings.AMO_PIPELINE_YANDEX,
-                    settings.AMO_STATUS_AUTOPAY_YANDEX,
-                )
-
-        logger.info(f"UTM НЕ совпали: Сайт (ID={settings.AMO_PIPELINE_SITE}, по умолчанию) → Автооплаты ООО")
-        return (
-            settings.AMO_PIPELINE_SITE,
-            settings.AMO_STATUS_AUTOPAY_SITE,
-        )
+        # Старая логика распределения по воронкам (закомментирована):
+        #
+        # ЛОГИКА:
+        # 1. ПРИОРИТЕТ: Если класс 7 или 8 → воронка "7/8 класс"
+        # 2. ВСЕ остальные автооплаты идут в этап "Автооплаты ООО", но в разные воронки:
+        #    - ПАРТНЕРЫ - если utm_source совпал с правилами
+        #    - Сайт Яндекс - если utm_medium совпал с правилами
+        #    - Сайт - по умолчанию (если ничего не совпало)
+        #
+        # if user_class in [7, 8]:
+        #     logger.info(
+        #         f"Класс {user_class} обнаружен → воронка '7/8 класс' "
+        #         f"(ID={settings.PIPELINE_7_8_CLASS}) → Автооплаты ООО (ID={settings.PIPELINE_7_8_CLASS_AUTOPAY})"
+        #     )
+        #     return (
+        #         settings.PIPELINE_7_8_CLASS,
+        #         settings.PIPELINE_7_8_CLASS_AUTOPAY,
+        #     )
+        #
+        # utm_source = (utm.source or "").lower()
+        # utm_medium = (utm.medium or "").lower()
+        #
+        # logger.info(f"Определение воронки: user_class={user_class}, utm_source='{utm_source}', utm_medium='{utm_medium}'")
+        #
+        # partner_sources = settings.PARTNER_SOURCES.split(",")
+        # for partner in partner_sources:
+        #     if partner.strip().lower() in utm_source:
+        #         logger.info(
+        #             f"UTM совпали: ПАРТНЕРЫ (ID={settings.AMO_PIPELINE_PARTNERS}, "
+        #             f"utm_source содержит '{partner}') → Автооплаты ООО"
+        #         )
+        #         return (
+        #             settings.AMO_PIPELINE_PARTNERS,
+        #             settings.AMO_STATUS_AUTOPAY_PARTNERS,
+        #         )
+        #
+        # yandex_mediums = settings.YANDEX_MEDIUMS.split(",")
+        # for medium in yandex_mediums:
+        #     if medium.strip().lower() in utm_medium:
+        #         logger.info(
+        #             f"UTM совпали: Сайт Яндекс (ID={settings.AMO_PIPELINE_YANDEX}, "
+        #             f"utm_medium содержит '{medium}') → Автооплаты ООО"
+        #         )
+        #         return (
+        #             settings.AMO_PIPELINE_YANDEX,
+        #             settings.AMO_STATUS_AUTOPAY_YANDEX,
+        #         )
+        #
+        # logger.info(f"UTM НЕ совпали: Сайт (ID={settings.AMO_PIPELINE_SITE}, по умолчанию) → Автооплаты ООО")
+        # return (
+        #     settings.AMO_PIPELINE_SITE,
+        #     settings.AMO_STATUS_AUTOPAY_SITE,
+        # )
 
     async def process_payment(self, payment: PaymentWebhook) -> ProcessResult:
         """
@@ -388,7 +384,7 @@ class PaymentProcessor:
             logger.info(f"Создание новой сделки в воронке {pipeline_id} (этап {status_id})...")
 
             user_name = f"{user.first_name} {user.last_name}".strip() or "Клиент без имени"
-            lead_name = f"Оплата платформы - {user_name}"
+            lead_name = "Автооплата: Платформа"
             price = payment.total_cost
 
             utm = payment.course_order.utm
@@ -703,8 +699,12 @@ class PaymentProcessor:
             direction_enum_id = settings.AMO_DIRECTION_EGE
             logger.warning(f"Direction not determined, using ultimate fallback: EGE → {direction_enum_id}")
 
-        # Собираем предметы
+        # Собираем предметы (Профориентация — подарочный курс, не считаем как предмет)
         for item in payment.course_order.course_order_items:
+            if "профориентация" in item.course.name.lower():
+                logger.debug(f"Пропускаем подарочный курс: '{item.course.name}'")
+                continue
+
             subject_name = item.course.subject.name
 
             subject_enum_id = SUBJECTS_MAPPING.get(subject_name)
