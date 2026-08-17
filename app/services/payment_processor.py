@@ -393,7 +393,7 @@ class PaymentProcessor:
             utm_campaign = utm.campaign or None
             utm_content = utm.content or None
             utm_term = utm.term or None
-            ym_uid = utm.ym or None
+            ym_uid = utm.metrika_client_id or utm.ym or None
             domain = payment.course_order.domain or None
             user_class_value = payment.course_order.user.user_class
             is_parent_value = payment.course_order.is_parent
@@ -594,7 +594,7 @@ class PaymentProcessor:
         utm_campaign = utm.campaign or None
         utm_content = utm.content or None
         utm_term = utm.term or None
-        ym_uid = utm.ym or None
+        ym_uid = utm.metrika_client_id or utm.ym or None
         domain = payment.course_order.domain or None
         user_class_value = payment.course_order.user.user_class
         is_parent_value = payment.course_order.is_parent
@@ -737,7 +737,7 @@ class PaymentProcessor:
             utm_campaign = utm.campaign or None
             utm_content = utm.content or None
             utm_term = utm.term or None
-            ym_uid = utm.ym or None
+            ym_uid = utm.metrika_client_id or utm.ym or None
 
         domain = payment.course_order.domain or None
         user_class_value = payment.course_order.user.user_class

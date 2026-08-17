@@ -57,6 +57,7 @@ class PaymentUTM(BaseModel):
     term: str = Field(default="", description="UTM term")
     content: str = Field(default="", description="UTM content")
     ym: str = Field(default="", description="Yandex Metrika")
+    metrika_client_id: str = Field(default="", description="Яндекс Метрика client ID")
 
 
 class CourseOrder(BaseModel):
