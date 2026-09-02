@@ -123,6 +123,9 @@ class Settings(BaseSettings):
     PIPELINE_WEBINARS_AUTOPAY: int = Field(..., description="ID статуса автооплаты для Вебинары")
     PIPELINE_7_8_CLASS_AUTOPAY: int = Field(..., description="ID статуса автооплаты для 7/8 класс")
 
+    # Теги
+    TAG_PLATFORM_PAYMENT_SYNC: int = Field(default=929159, description="ID тега 'platform-payment-sync' в AmoCRM")
+
     # UTM правила для определения воронки
     PARTNER_SOURCES: str = Field(..., description="utm_source для воронки ПАРТНЕРЫ (через запятую)")
     YANDEX_MEDIUMS: str = Field(..., description="utm_medium для воронки Сайт Яндекс (через запятую)")

@@ -51,11 +51,32 @@ class PaymentProcessor:
         utm_source = (payment.course_order.utm.source or "").lower()
         return utm_source == "op"
 
-    def determine_pipeline_and_status(self, utm: PaymentUTM, user_class: int | None = None) -> tuple[int, int]:
+    # Курсы, которые направляются в воронку СШ (id 10243538) — в нижнем регистре для регистронезависимого сравнения
+    _SS_COURSES_LOWER: frozenset[str] = frozenset([
+        "средняя школа 2к26",
+        "средняя школа 2к27",
+        "средняя школа 2к27 + лш",
+    ])
+
+    def determine_pipeline_and_status(
+        self,
+        utm: PaymentUTM,
+        user_class: int | None = None,
+        course_names: list[str] | None = None,
+    ) -> tuple[int, int]:
         """
-        Все автооплаты → воронка Сайт (4423755), этап Автооплаты ООО (63242022).
+        Определить воронку и этап для новой сделки.
+
+        Если среди оплаченных курсов есть курс Средней Школы → воронка СШ (10243538).
+        Иначе → воронка Звонки (4423755), этап Автооплаты ООО (63242022).
         """
-        logger.info("Воронка: Сайт (4423755) → Автооплаты ООО (63242022)")
+        if course_names:
+            for name in course_names:
+                if name.lower().strip() in self._SS_COURSES_LOWER:
+                    logger.info("Курс '%s' → воронка СШ (%s) → Автооплаты ООО (%s)", name, settings.PIPELINE_7_8_CLASS, settings.PIPELINE_7_8_CLASS_AUTOPAY)
+                    return (settings.PIPELINE_7_8_CLASS, settings.PIPELINE_7_8_CLASS_AUTOPAY)
+
+        logger.info("Воронка: Звонки (4423755) → Автооплаты ООО (63242022)")
         return (4423755, 63242022)
 
         # Старая логика распределения по воронкам (закомментирована):
@@ -321,7 +342,8 @@ class PaymentProcessor:
 
             utm = payment.course_order.utm
             user_class = payment.course_order.user.user_class
-            pipeline_id, status_id = self.determine_pipeline_and_status(utm, user_class)
+            course_names = [item.course.name for item in payment.course_order.course_order_items]
+            pipeline_id, status_id = self.determine_pipeline_and_status(utm, user_class, course_names)
 
             logger.info(f"Целевая воронка: pipeline_id={pipeline_id}, status_id={status_id}")
 

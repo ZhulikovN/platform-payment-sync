@@ -619,7 +619,10 @@ class AmoCRMClient:
             "price": price,
             "pipeline_id": target_pipeline_id,
             "status_id": target_status_id,
-            "_embedded": {"contacts": [{"id": contact_id}]},
+            "_embedded": {
+                "contacts": [{"id": contact_id}],
+                "tags": [{"id": settings.TAG_PLATFORM_PAYMENT_SYNC}],
+            },
             "custom_fields_values": [],
         }
 
