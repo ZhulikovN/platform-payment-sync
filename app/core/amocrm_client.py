@@ -1,6 +1,8 @@
 """Клиент для работы с AmoCRM API."""
 
+import asyncio
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -20,6 +22,33 @@ from app.core.amocrm_mappings import (
 from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
+
+
+class _AsyncRateLimiter:
+    """
+    Простой in-process лимитер запросов на основе минимального интервала.
+
+    Гарантирует, что между последовательными вызовами acquire() пройдёт
+    не менее 1/max_per_second секунд. Lock обеспечивает корректность
+    при конкурентных корутинах.
+    """
+
+    def __init__(self, max_per_second: float) -> None:
+        self._interval = 1.0 / max_per_second
+        self._lock = asyncio.Lock()
+        self._last_call: float = 0.0
+
+    async def acquire(self) -> None:
+        async with self._lock:
+            now = time.monotonic()
+            wait = self._interval - (now - self._last_call)
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self._last_call = time.monotonic()
+
+
+# Лимит 3 req/sec — один экземпляр на всё приложение
+_amo_limiter = _AsyncRateLimiter(max_per_second=3.0)
 
 
 class AmoCRMClient:
@@ -67,6 +96,9 @@ class AmoCRMClient:
         ):
             with attempt:
                 try:
+                    # Проактивный лимит: не более 3 req/sec
+                    await _amo_limiter.acquire()
+
                     async with httpx.AsyncClient(timeout=30.0) as client:
                         if method == "GET":
                             response = await client.get(url, headers=self.headers, params=data)  # type: ignore
@@ -78,8 +110,16 @@ class AmoCRMClient:
                             raise ValueError(f"Unsupported HTTP method: {method}")
 
                         if response.status_code == 429:
-                            logger.warning("AmoCRM rate limit exceeded, retrying...")
-                            response.raise_for_status()
+                            try:
+                                retry_after = float(response.headers.get("Retry-After", "60"))
+                            except (ValueError, TypeError):
+                                retry_after = 60.0
+                            logger.warning(
+                                "AmoCRM rate limit (429): sleeping %.1fs before retry",
+                                retry_after,
+                            )
+                            await asyncio.sleep(retry_after)
+                            response.raise_for_status()  # tenacity повторит попытку
 
                         response.raise_for_status()
 
