@@ -821,7 +821,30 @@ class AmoCRMClient:
         logger.info(f"Updating lead {lead_id} fields" + (f" and budget ({total_paid})" if total_paid else ""))
 
         try:
-            response = await self._make_request("GET", f"/api/v4/leads/{lead_id}")
+            # AmoCRM изредка возвращает 404 сразу после создания сделки (eventual consistency).
+            # Делаем до 3 попыток с паузой 1 сек — этого достаточно чтобы лид проиндексировался.
+            _get_response: dict[str, Any] | None = None
+            for _attempt in range(1, 4):
+                try:
+                    _get_response = await self._make_request("GET", f"/api/v4/leads/{lead_id}")
+                    break
+                except httpx.HTTPStatusError as _e:
+                    if _e.response.status_code == 404 and _attempt < 3:
+                        logger.warning(
+                            "Lead %s not found (attempt %s/3), retrying in 1s...",
+                            lead_id,
+                            _attempt,
+                        )
+                        await asyncio.sleep(1.0)
+                    else:
+                        if _e.response.status_code == 404:
+                            logger.error(
+                                "Lead %s not found после 3 попыток — сделка недоступна в AmoCRM, "
+                                "поля не обновлены. Оплата залогирована как error.",
+                                lead_id,
+                            )
+                        raise
+            response = _get_response  # type: ignore[assignment]
             current_fields = response.get("custom_fields_values") or []
 
             current_purchase_count = 0
