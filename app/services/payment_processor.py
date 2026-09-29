@@ -51,12 +51,11 @@ class PaymentProcessor:
         utm_source = (payment.course_order.utm.source or "").lower()
         return utm_source == "op"
 
-    # Курсы, которые направляются в воронку СШ (id 10243538) — в нижнем регистре для регистронезависимого сравнения
-    _SS_COURSES_LOWER: frozenset[str] = frozenset([
-        "средняя школа 2к26",
-        "средняя школа 2к27",
-        "средняя школа 2к27 + лш",
-    ])
+    # Классы, которые направляются в воронку СШ (id 10243538)
+    _SS_CLASSES: frozenset[int] = frozenset([6, 7, 8])
+
+    # Ключевые слова в названии курса → воронка СШ (fallback если класс не пришёл)
+    _SS_COURSE_KEYWORDS: tuple[str, ...] = ("6 класс", "7 класс", "8 класс")
 
     def determine_pipeline_and_status(
         self,
@@ -67,16 +66,37 @@ class PaymentProcessor:
         """
         Определить воронку и этап для новой сделки.
 
-        Если среди оплаченных курсов есть курс Средней Школы → воронка СШ (10243538).
-        Иначе → воронка Звонки (4423755), этап Автооплаты ООО (63242022).
+        Приоритет:
+        1. Если класс клиента 6, 7 или 8 → воронка СШ (10243538).
+        2. Если класс не пришёл — ищем ключевые слова в названиях курсов.
+        3. Иначе → воронка Звонки (4423755), этап Автооплаты ООО (63242022).
         """
+        # Приоритет 1: по классу
+        if user_class in self._SS_CLASSES:
+            logger.info(
+                "Класс %s → воронка СШ (%s) → Автооплаты ООО (%s)",
+                user_class,
+                settings.PIPELINE_7_8_CLASS,
+                settings.PIPELINE_7_8_CLASS_AUTOPAY,
+            )
+            return (settings.PIPELINE_7_8_CLASS, settings.PIPELINE_7_8_CLASS_AUTOPAY)
+
+        # Приоритет 2: по названию курса (fallback если класс не пришёл)
         if course_names:
             for name in course_names:
-                if name.lower().strip() in self._SS_COURSES_LOWER:
-                    logger.info("Курс '%s' → воронка СШ (%s) → Автооплаты ООО (%s)", name, settings.PIPELINE_7_8_CLASS, settings.PIPELINE_7_8_CLASS_AUTOPAY)
-                    return (settings.PIPELINE_7_8_CLASS, settings.PIPELINE_7_8_CLASS_AUTOPAY)
+                name_lower = name.lower()
+                for keyword in self._SS_COURSE_KEYWORDS:
+                    if keyword in name_lower:
+                        logger.info(
+                            "Курс '%s' содержит '%s' → воронка СШ (%s) → Автооплаты ООО (%s)",
+                            name,
+                            keyword,
+                            settings.PIPELINE_7_8_CLASS,
+                            settings.PIPELINE_7_8_CLASS_AUTOPAY,
+                        )
+                        return (settings.PIPELINE_7_8_CLASS, settings.PIPELINE_7_8_CLASS_AUTOPAY)
 
-        logger.info("Воронка: Звонки (4423755) → Автооплаты ООО (63242022)")
+        logger.info("Класс %s → Воронка: Звонки (4423755) → Автооплаты ООО (63242022)", user_class)
         return (4423755, 63242022)
 
         # Старая логика распределения по воронкам (закомментирована):
