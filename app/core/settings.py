@@ -142,6 +142,8 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = Field(default="INFO", description="Уровень логирования (DEBUG, INFO, WARNING, ERROR)")
 
+    DATABASE_PATH: str = Field(..., description="Путь к SQLite базе данных")
+
     # Webhook security
     WEBHOOK_SECRET: str = Field(..., description="Секретный ключ для проверки подлинности webhook запросов")
 

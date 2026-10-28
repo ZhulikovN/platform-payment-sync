@@ -36,7 +36,7 @@ class PaymentProcessor:
             event_logger: Логгер событий (опционально для тестов)
         """
         self.client = amocrm_client or AmoCRMClient()
-        self.event_logger = event_logger or EventLogger()
+        self.event_logger = event_logger or EventLogger(db_path=settings.DATABASE_PATH)
 
     def is_op_payment(self, payment: PaymentWebhook) -> bool:
         """
