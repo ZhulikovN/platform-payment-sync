@@ -51,6 +51,7 @@ ALLOWED_PIPELINES = [
 ]
 
 SUBJECTS_MAPPING: dict[str, int] = {
+    # ЕГЭ предметы
     "Обществознание": settings.AMO_SUBJECT_OBSHCHESTVO,
     "Английский язык": settings.AMO_SUBJECT_ENGLISH,
     "История": settings.AMO_SUBJECT_HISTORY,
@@ -58,35 +59,32 @@ SUBJECTS_MAPPING: dict[str, int] = {
     "Физика": settings.AMO_SUBJECT_PHYSICS,
     "Химия": settings.AMO_SUBJECT_CHEMISTRY,
     "Литература": settings.AMO_SUBJECT_LITERATURE,
+    "Проф. мат (Ильяс)": settings.AMO_SUBJECT_MATH_PROF_ILYAS,
     "Проф. мат (Маша)": settings.AMO_SUBJECT_MATH_PROF_MASHA,
     "Математика (база)": settings.AMO_SUBJECT_MATH_BASE,
+    "Биология (Глеб)": settings.AMO_SUBJECT_BIOLOGY_GLEB,
     "Биология (Женя)": settings.AMO_SUBJECT_BIOLOGY_ZHENYA,
-    "Обществознание ОГЭ": settings.AMO_SUBJECT_OBSHCHESTVO,
-    "Русский ОГЭ": settings.AMO_SUBJECT_RUSSIAN,
-    "Математика ОГЭ": settings.AMO_LEAD_FIELD_SUBJECT_MATH_OGE,
-    "Биология ОГЭ": settings.AMO_SUBJECT_BIOLOGY_GELYA,
     "Информатика": settings.AMO_SUBJECT_INFORMATICS,
     "Проф. мат (Саша)": settings.AMO_SUBJECT_MATH_PROF_SASHA,
     "Биология (Геля)": settings.AMO_SUBJECT_BIOLOGY_GELYA,
-    "Математика": settings.AMO_LEAD_FIELD_SUBJECT_MATH_7_8,
+
+    "Математика":           1378893,  # "Математика 6-8"
+
+    # ОГЭ предметы (поле 797182)
+    "Математика ОГЭ":       1378895,  # "Математика | ОГЭ"
+    "Русский ОГЭ":          1381293,  # "Русский язык | ОГЭ"
+    "История ОГЭ":          1381295,  # "История | ОГЭ"
+    "Биология ОГЭ":         1381297,  # "Биология | ОГЭ"
+    "Обществознание ОГЭ":   1381299,  # "Обществознание | ОГЭ"
+    "Информатика ОГЭ":      1381301,  # "Информатика | ОГЭ"
+    "География ОГЭ":        1381819,  # "География | ОГЭ"
+    "Физика ОГЭ":           1381823,  # "Физика | ОГЭ"
+    "Химия ОГЭ":            1381825,  # "Химия | ОГЭ"
+
+    # ЕГЭ — География
+    "География":            1381821,  # "География"
+
 }
-
-def get_subject_enum_ids(subject_names: list[str]) -> list[int]:
-    """
-    Получить список enum_id для предметов.
-
-    Args:
-        subject_names: Список названий предметов
-
-    Returns:
-        Список enum_id для AmoCRM (пропускает неизвестные предметы)
-    """
-    enum_ids = []
-    for name in subject_names:
-        enum_id = SUBJECTS_MAPPING.get(name)
-        if enum_id:
-            enum_ids.append(enum_id)
-    return enum_ids
 
 
 def get_direction_enum_id_by_class(user_class: int) -> int | None:
@@ -100,11 +98,12 @@ def get_direction_enum_id_by_class(user_class: int) -> int | None:
         enum_id для AmoCRM или None если класс не поддерживается
     """
     class_to_direction = {
-        7: settings.AMO_DIRECTION_CLASS_7,   # "Математика 7 класс 2к26"
-        8: settings.AMO_DIRECTION_CLASS_8,   # "Математика 8 класс 2к26"
-        9: settings.AMO_DIRECTION_CLASS_9,   # "Весенний курс 2к26 ОГЭ"
-        10: settings.AMO_DIRECTION_CLASS_10, # "Весенний курс 2к26 ЕГЭ 10 класс"
-        11: settings.AMO_DIRECTION_CLASS_11, # "Весенний курс 2к26 ЕГЭ 11 класс"
+        6: settings.AMO_DIRECTION_MIDDLE_SCHOOL,   # Средняя Школа 2к26
+        7: settings.AMO_DIRECTION_MIDDLE_SCHOOL,   # Средняя Школа 2к26
+        8: settings.AMO_DIRECTION_MIDDLE_SCHOOL,   # Средняя Школа 2к26
+        9: settings.AMO_DIRECTION_ANNUAL_2027_CLASS_9, # Годовой курс 2к27
+        10: settings.AMO_DIRECTION_ANNUAL_2027_CLASS_10, # Годовой курс 2к27
+        11: settings.AMO_DIRECTION_ANNUAL_2027_CLASS_11, # Годовой курс 2к27
     }
     return class_to_direction.get(user_class)
 
@@ -112,13 +111,10 @@ def get_direction_enum_id_by_class(user_class: int) -> int | None:
 def get_direction_enum_id_by_course_name(course_name: str) -> int | None:
     """
     Получить enum_id направления по названию курса.
-    
-    Логика (приоритет по порядку):
-    1. Марафон 2к26 ЕГЭ → 1368150
-    2. Годовой курс 2к27 (8, 9, 10, 11 класс) → новые enum_id
-    3. Весенний курс 2к26 (9, 10, 11 класс) → enum_id для весеннего
-    4. Математика 7/8 класс 2к26 → без изменений
-    5. Fallback → по project (ЕГЭ/ОГЭ)
+
+    Приоритет:
+    1. Марафон 2к26 ЕГЭ
+    2. Годовой курс 2к27 (по классу/типу экзамена)
 
     Args:
         course_name: Название курса
@@ -135,78 +131,63 @@ def get_direction_enum_id_by_course_name(course_name: str) -> int | None:
     # ПРИОРИТЕТ 2: Годовой курс 2к27
     if "годовой курс 2к27" in course_lower or "годовой 2к27" in course_lower:
         if "11 класс" in course_lower:
-            return settings.AMO_DIRECTION_ANNUAL_2027_CLASS_11  # Годовой курс 2к27 ЕГЭ 11 класс (1381127)
+            return settings.AMO_DIRECTION_ANNUAL_2027_CLASS_11
         elif "10 класс" in course_lower:
-            return settings.AMO_DIRECTION_ANNUAL_2027_CLASS_10  # Годовой курс 2к27 ЕГЭ 10 класс (1381129)
+            return settings.AMO_DIRECTION_ANNUAL_2027_CLASS_10
         elif "9 класс" in course_lower:
-            return settings.AMO_DIRECTION_ANNUAL_2027_CLASS_9   # Годовой курс 2к27 ОГЭ 9 класс (1381131)
+            return settings.AMO_DIRECTION_ANNUAL_2027_CLASS_9
         elif "8 класс" in course_lower:
-            return settings.AMO_DIRECTION_ANNUAL_2027_CLASS_8   # Годовой курс 2к27 ОГЭ 8 класс (1381133)
-    
-    # ПРИОРИТЕТ 3: Весенний курс 2к26
-    if "весенний курс" in course_lower or "весенний курс 2к26" in course_lower:
-        if "11 класс" in course_lower:
-            return settings.AMO_DIRECTION_CLASS_11  # Весенний курс 2к26 ЕГЭ 11 класс (1380927)
-        elif "10 класс" in course_lower:
-            return settings.AMO_DIRECTION_CLASS_10  # Весенний курс 2к26 ЕГЭ 10 класс (1380925)
-        elif "9 класс" in course_lower:
-            return settings.AMO_DIRECTION_CLASS_9   # Весенний курс 2к26 ОГЭ (1380923)
-    
-    # ПРИОРИТЕТ 4: Математика 7/8 класс 2к26
-    if "математика 8 класс" in course_lower:
-        return settings.AMO_DIRECTION_CLASS_8  # Математика 8 класс 2к26
-    elif "математика 7 класс" in course_lower:
-        return settings.AMO_DIRECTION_CLASS_7  # Математика 7 класс 2к26
-    
+            return settings.AMO_DIRECTION_ANNUAL_2027_CLASS_8
+        elif "огэ" in course_lower:
+            return settings.AMO_DIRECTION_ANNUAL_2027_CLASS_9
+        elif "еге" in course_lower or "ege" in course_lower:
+            return settings.AMO_DIRECTION_ANNUAL_2027_CLASS_11
+
     return None
 
 
 def get_course_type_enum_id(course_name: str) -> int | None:
     """
-    Определить тип курса (Standart/PRO) по названию.
-    
-    Работает ТОЛЬКО для новых курсов:
-    - Марафон 2к26 ЕГЭ
-    - Годовой курс 2к27 (8, 9, 10, 11 класс)
-    - Весенний курс 2к26 (9, 10, 11 класс)
-    - Математика 2к26 (7, 8 класс)
-    
-    Для остальных курсов → возвращает None (не заполняем поле).
-    
-    Ищет в названии:
-    - "standart" / "Standart" / "STANDART" → 1376634
-    - "pro" / "Pro" / "PRO" → 1380929
-    - Если не найдено ни одно → 1376634 (Standart по умолчанию)
-    
+    Определить тариф курса (Standart/PRO) по названию.
+
+    Работает только для актуальных курсов: Марафон 2к26, Годовой 2к27, Годовой 2к26,
+    курсы 7/8/6 класса. Для остальных → None (поле не заполняем).
+
     Args:
         course_name: Название курса
-    
+
     Returns:
-        enum_id: 1376634 (Standart) или 1380929 (PRO), или None (не заполнять)
+        enum_id тарифа или None
     """
     course_lower = course_name.lower()
-    
-    # Проверяем только для новых курсов
+
     is_new_course = (
-        "марафон 2к26" in course_lower or
         "марафон" in course_lower or
-        "годовой курс 2к27" in course_lower or
         "годовой 2к27" in course_lower or
-        "весенний курс" in course_lower or 
-        "математика 8 класс 2к26" in course_lower or 
-        "математика 7 класс 2к26" in course_lower
+        "годовой курс 2к27" in course_lower or
+        "годовой 2к26" in course_lower or
+        "годовой курс 2к26" in course_lower or
+        "математика 7 класс" in course_lower or
+        "математика 8 класс" in course_lower or
+        "математика 6 класс" in course_lower or
+        "русский язык 7 класс" in course_lower or
+        "русский язык 8 класс" in course_lower
     )
-    
+
     if not is_new_course:
         return None
-    
-    # Для новых курсов проверяем тип
+
+    if "базовый" in course_lower:
+        return 1381125  # "Базовый"
+
+    if "премиум" in course_lower:
+        return 1381195  # "Премиум"
+
     if "pro" in course_lower or "про" in course_lower:
-        return settings.AMO_COURSE_TYPE_PRO  # 1380929
-    
+        return settings.AMO_COURSE_TYPE_PRO  # "ПРО" (1380929)
+
     if "standart" in course_lower or "стандарт" in course_lower:
-        return settings.AMO_COURSE_TYPE_STANDART  # 1376634
-    
-    # По умолчанию для новых курсов → Standart
-    return settings.AMO_COURSE_TYPE_STANDART  # 1376634
+        return settings.AMO_COURSE_TYPE_STANDART  # "Стандарт" (1376634)
+
+    return settings.AMO_COURSE_TYPE_STANDART
 

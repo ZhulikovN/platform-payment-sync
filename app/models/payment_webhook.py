@@ -57,6 +57,7 @@ class PaymentUTM(BaseModel):
     term: str = Field(default="", description="UTM term")
     content: str = Field(default="", description="UTM content")
     ym: str = Field(default="", description="Yandex Metrika")
+    metrika_client_id: str = Field(default="", description="Яндекс Метрика client ID")
 
 
 class CourseOrder(BaseModel):
@@ -83,6 +84,14 @@ class CourseOrder(BaseModel):
         default=None,
         description="ID существующей сделки в AmoCRM для прямого обновления"
     )
+
+    @field_validator('course_order_items', mode='before')
+    @classmethod
+    def normalize_course_order_items(cls, v):
+        """Принять course_order_items как список или как словарь {"1": {...}, "2": {...}}."""
+        if isinstance(v, dict):
+            return list(v.values())
+        return v
 
     @field_validator('amo_payment_id', mode='before')
     @classmethod

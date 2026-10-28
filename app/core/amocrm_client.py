@@ -1,13 +1,15 @@
 """Клиент для работы с AmoCRM API."""
 
+import asyncio
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
 from tenacity import (
     AsyncRetrying,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -20,6 +22,33 @@ from app.core.amocrm_mappings import (
 from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
+
+
+class _AsyncRateLimiter:
+    """
+    Простой in-process лимитер запросов на основе минимального интервала.
+
+    Гарантирует, что между последовательными вызовами acquire() пройдёт
+    не менее 1/max_per_second секунд. Lock обеспечивает корректность
+    при конкурентных корутинах.
+    """
+
+    def __init__(self, max_per_second: float) -> None:
+        self._interval = 1.0 / max_per_second
+        self._lock = asyncio.Lock()
+        self._last_call: float = 0.0
+
+    async def acquire(self) -> None:
+        async with self._lock:
+            now = time.monotonic()
+            wait = self._interval - (now - self._last_call)
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self._last_call = time.monotonic()
+
+
+# Лимит 3 req/sec — один экземпляр на всё приложение
+_amo_limiter = _AsyncRateLimiter(max_per_second=3.0)
 
 
 class AmoCRMClient:
@@ -58,12 +87,18 @@ class AmoCRMClient:
             logger.debug(f"Request data: {data}")
 
         async for attempt in AsyncRetrying(
-            stop=stop_after_attempt(2),  # Снижено с 3 до 2
+            stop=stop_after_attempt(settings.RETRY_MAX_ATTEMPTS),
             wait=wait_exponential(multiplier=1, min=settings.RETRY_WAIT_MIN, max=settings.RETRY_WAIT_MAX),
-            retry=retry_if_exception_type(httpx.RequestError),  # Только сетевые ошибки, не HTTP статусы
+            retry=retry_if_exception(lambda e: (
+                isinstance(e, httpx.RequestError) or
+                (isinstance(e, httpx.HTTPStatusError) and e.response.status_code >= 500)
+            )),
         ):
             with attempt:
                 try:
+                    # Проактивный лимит: не более 3 req/sec
+                    await _amo_limiter.acquire()
+
                     async with httpx.AsyncClient(timeout=30.0) as client:
                         if method == "GET":
                             response = await client.get(url, headers=self.headers, params=data)  # type: ignore
@@ -75,8 +110,16 @@ class AmoCRMClient:
                             raise ValueError(f"Unsupported HTTP method: {method}")
 
                         if response.status_code == 429:
-                            logger.warning("AmoCRM rate limit exceeded, retrying...")
-                            response.raise_for_status()
+                            try:
+                                retry_after = float(response.headers.get("Retry-After", "60"))
+                            except (ValueError, TypeError):
+                                retry_after = 60.0
+                            logger.warning(
+                                "AmoCRM rate limit (429): sleeping %.1fs before retry",
+                                retry_after,
+                            )
+                            await asyncio.sleep(retry_after)
+                            response.raise_for_status()  # tenacity повторит попытку
 
                         response.raise_for_status()
 
@@ -616,7 +659,10 @@ class AmoCRMClient:
             "price": price,
             "pipeline_id": target_pipeline_id,
             "status_id": target_status_id,
-            "_embedded": {"contacts": [{"id": contact_id}]},
+            "_embedded": {
+                "contacts": [{"id": contact_id}],
+                "tags": [{"id": settings.TAG_PLATFORM_PAYMENT_SYNC}],
+            },
             "custom_fields_values": [],
         }
 
@@ -775,7 +821,30 @@ class AmoCRMClient:
         logger.info(f"Updating lead {lead_id} fields" + (f" and budget ({total_paid})" if total_paid else ""))
 
         try:
-            response = await self._make_request("GET", f"/api/v4/leads/{lead_id}")
+            # AmoCRM изредка возвращает 404 сразу после создания сделки (eventual consistency).
+            # Делаем до 3 попыток с паузой 1 сек — этого достаточно чтобы лид проиндексировался.
+            _get_response: dict[str, Any] | None = None
+            for _attempt in range(1, 4):
+                try:
+                    _get_response = await self._make_request("GET", f"/api/v4/leads/{lead_id}")
+                    break
+                except httpx.HTTPStatusError as _e:
+                    if _e.response.status_code == 404 and _attempt < 3:
+                        logger.warning(
+                            "Lead %s not found (attempt %s/3), retrying in 1s...",
+                            lead_id,
+                            _attempt,
+                        )
+                        await asyncio.sleep(1.0)
+                    else:
+                        if _e.response.status_code == 404:
+                            logger.error(
+                                "Lead %s not found после 3 попыток — сделка недоступна в AmoCRM, "
+                                "поля не обновлены. Оплата залогирована как error.",
+                                lead_id,
+                            )
+                        raise
+            response = _get_response  # type: ignore[assignment]
             current_fields = response.get("custom_fields_values") or []
 
             current_purchase_count = 0
