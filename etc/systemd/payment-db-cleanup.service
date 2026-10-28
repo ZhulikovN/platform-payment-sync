@@ -4,9 +4,15 @@ After=network.target
 
 [Service]
 Type=oneshot
-User=your_user
-WorkingDirectory=/path/to/platform-payment-sync
-ExecStart=/path/to/platform-payment-sync/.venv/bin/python scripts/cleanup_db.py --days 30
+User=deploy
+Group=deploy
+
+EnvironmentFile=/home/deploy/platform-payment/current/.env
+
+WorkingDirectory=/home/deploy/platform-payment/current
+
+ExecStart=/home/deploy/platform-payment/current/.venv/bin/python scripts/cleanup_db.py --days 30
+
 StandardOutput=journal
 StandardError=journal
 
