@@ -794,6 +794,7 @@ class AmoCRMClient:
         domain: str | None = None,
         purchased_subjects_count: int | None = None,
         user_class: int | None = None,
+        grade_class_text: str | None = None,
         is_parent: bool | None = None,
         promo_code: str | None = None,
     ) -> None:
@@ -805,6 +806,12 @@ class AmoCRMClient:
             subjects: Список enum_id предметов (для мультисписка)
             direction: enum_id направления курса (ЕГЭ/ОГЭ)
             course_type: enum_id типа курса (Standart/PRO)
+            grade_class_text: текст класса ("10"/"11") для поля 806496 (textarea),
+                определённый из названия курса (напр. "Погоня"). Используется только как
+                fallback, если user_class не пришёл от платформы (None) —
+                user_class как более авторитетный источник всегда в
+                приоритете, чтобы не отправлять в одном запросе два разных
+                значения для одного field_id.
             last_payment_amount: Сумма последней оплаты
             payment_status: Статус оплаты
             last_payment_date: Дата последней оплаты
@@ -971,6 +978,15 @@ class AmoCRMClient:
                 logger.info(f"Updating class: {user_class}")
                 update_data["custom_fields_values"].append(
                     {"field_id": settings.AMO_LEAD_FIELD_CLASS, "values": [{"value": str(user_class)}]}
+                )
+            elif grade_class_text is not None:
+                # Fallback: user_class не пришёл от платформы, но класс можно
+                # однозначно определить из названия купленного курса (напр.
+                # "Погоня 2к27 ЕГЭ 10 класс"). Поле 806496 — textarea,
+                # поэтому отправляем текст "10"/"11", а не enum_id.
+                logger.info(f"Updating class via text (fallback from course name): {grade_class_text}")
+                update_data["custom_fields_values"].append(
+                    {"field_id": settings.AMO_LEAD_FIELD_CLASS, "values": [{"value": grade_class_text}]}
                 )
 
             if is_parent is not None:

@@ -1,6 +1,10 @@
 """Маппинг enum_id для полей AmoCRM со списками выбора."""
 
+import logging
+
 from app.core.settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_phone(phone: str) -> str:
@@ -114,7 +118,8 @@ def get_direction_enum_id_by_course_name(course_name: str) -> int | None:
 
     Приоритет:
     1. Марафон 2к26 ЕГЭ
-    2. Годовой курс 2к27 (по классу/типу экзамена)
+    2. Погоня 2к27 (сменил Годовой курс 2к27 в продажах с начала ноября 2026)
+    3. Годовой курс 2к27 (по классу/типу экзамена)
 
     Args:
         course_name: Название курса
@@ -127,8 +132,24 @@ def get_direction_enum_id_by_course_name(course_name: str) -> int | None:
     # ПРИОРИТЕТ 1: Марафон 2к26 ЕГЭ
     if "марафон 2к26" in course_lower or "марафон" in course_lower:
         return settings.AMO_DIRECTION_MARATHON_2026  # Марафон 2к26 ЕГЭ (1368150)
-    
-    # ПРИОРИТЕТ 2: Годовой курс 2к27
+
+    # ПРИОРИТЕТ 2: Погоня 2к27 — новый курс, заменивший "Годовой курс 2к27"
+    # в продажах на платформе с начала ноября 2026. Платформа присылает
+    # название вида "Погоня 2к27 ЕГЭ 11 класс Стандарт/Премиум/Самостоятельный"
+    # или "Погоня 2к27 ОГЭ Стандарт/Премиум/Самостоятельный" (без класса).
+    if "погоня 2к27" in course_lower or "погоня" in course_lower:
+        if "11 класс" in course_lower:
+            return 1382445  # "Погоня 2к27 ЕГЭ 11 класс"
+        elif "10 класс" in course_lower:
+            return 1382457  # "Погоня 2к27 ЕГЭ 10 класс"
+        elif "огэ" in course_lower:
+            return 1382449  # "Погоня 2к27 ОГЭ"
+        else:
+            logger.warning(
+                "Курс 'Погоня 2к27' без распознанного класса/экзамена: '%s'", course_name
+            )
+
+    # ПРИОРИТЕТ 3: Годовой курс 2к27
     if "годовой курс 2к27" in course_lower or "годовой 2к27" in course_lower:
         if "11 класс" in course_lower:
             return settings.AMO_DIRECTION_ANNUAL_2027_CLASS_11
@@ -163,6 +184,7 @@ def get_course_type_enum_id(course_name: str) -> int | None:
 
     is_new_course = (
         "марафон" in course_lower or
+        "погоня" in course_lower or
         "годовой 2к27" in course_lower or
         "годовой курс 2к27" in course_lower or
         "годовой 2к26" in course_lower or
@@ -180,6 +202,12 @@ def get_course_type_enum_id(course_name: str) -> int | None:
     if "базовый" in course_lower:
         return 1381125  # "Базовый"
 
+    # "Самостоятельный" — тариф курса "Погоня 2к27" (ЕГЭ 10/11 класс и ОГЭ).
+    # Проверяем раньше общего fallback в конце функции, иначе такие заказы
+    # молча утекли бы в "Стандарт" по умолчанию.
+    if "самостоятельный" in course_lower:
+        return 1377541  # "Самостоятельный"
+
     if "премиум" in course_lower:
         return 1381195  # "Премиум"
 
@@ -190,4 +218,35 @@ def get_course_type_enum_id(course_name: str) -> int | None:
         return settings.AMO_COURSE_TYPE_STANDART  # "Стандарт" (1376634)
 
     return settings.AMO_COURSE_TYPE_STANDART
+
+
+def get_grade_text_by_course_name(course_name: str) -> str | None:
+    """
+    Определить номер класса (текст) по названию курса для поля "Класс" (field_id=806496, textarea).
+
+    Пока применимо только к курсу "Погоня 2к27 ЕГЭ" — платформа не всегда
+    надёжно присылает user_class в данных об оплате, а класс явно указан
+    в самом названии курса ("...10 класс" / "...11 класс"). Для ОГЭ-версии
+    класс в названии не указывается (курс общий для 9 класса) — поле не
+    заполняем, остаётся старая логика по user_class.
+
+    Args:
+        course_name: Название курса
+
+    Returns:
+        Строка с номером класса ("10", "11"), или None если определить не удалось
+        / не применимо к этому курсу.
+    """
+    course_lower = course_name.lower()
+
+    if "погоня" not in course_lower:
+        return None
+
+    if "11 класс" in course_lower:
+        return "11"
+
+    if "10 класс" in course_lower:
+        return "10"
+
+    return None
 
