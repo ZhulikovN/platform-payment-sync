@@ -211,8 +211,11 @@ class PaymentProcessor:
                 if existing_lead:
                     logger.info(f"Сделка найдена по amo_payment_id: {existing_lead['id']}")
                 else:
-                    logger.error(f"Сделка {amo_payment_id} не найдена в AmoCRM!")
-                    raise ValueError(f"Lead {amo_payment_id} not found")
+                    logger.warning(
+                        f"Сделка {amo_payment_id} не найдена в AmoCRM (удалена или неверный ID) — "
+                        "переходим к стандартному поиску по телефону/email"
+                    )
+                    amo_payment_id = None  # fallback: продолжаем как без amo_payment_id
 
             # ЕСЛИ amo_payment_id НЕ указан - стандартная логика поиска
             if amo_payment_id is None:

@@ -148,7 +148,7 @@ class EventLogger:
         try:
             async with aiosqlite.connect(self.db_path) as db:
                 async with db.execute(
-                    "SELECT COUNT(*) FROM payment_events WHERE payment_id = ?",
+                    "SELECT COUNT(*) FROM payment_events WHERE payment_id = ? AND status = 'success'",
                     (payment_id,),
                 ) as cursor:
                     row = await cursor.fetchone()
