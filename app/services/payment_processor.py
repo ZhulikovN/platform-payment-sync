@@ -430,7 +430,7 @@ class PaymentProcessor:
 
             user_name = f"{user.first_name} {user.last_name}".strip() or "Клиент без имени"
             lead_name = "Автооплата: Платформа"
-            price = payment.total_cost
+            price = payment.course_order.amount
 
             utm = payment.course_order.utm
             utm_source = utm.source or None
@@ -631,7 +631,7 @@ class PaymentProcessor:
         user_name = f"{user.first_name} {user.last_name}".strip() or "Клиент без имени"
         lead_name = f"Оплата платформы - {user_name}"
 
-        price = payment.total_cost
+        price = payment.course_order.amount
 
         utm = payment.course_order.utm
         utm_source = utm.source or None
@@ -767,7 +767,7 @@ class PaymentProcessor:
         
         purchased_subjects_count = len(subjects_enum_ids) if subjects_enum_ids else 0
 
-        amount = payment.total_cost
+        amount = payment.course_order.amount
         payment_status = payment.course_order.status
         payment_date = payment.course_order.updated_at
         payment_id = payment.course_order.payment_id
@@ -879,7 +879,7 @@ class PaymentProcessor:
             f"Дата/время: {datetime_local}",
             f"Дата/время UTC: {datetime_utc}",
             f"Статус: {order.status}",
-            f"Сумма: {payment.total_cost} {order.currency}",
+            f"Сумма: {order.amount} {order.currency}",
         ]
 
         if order.payment_method:
